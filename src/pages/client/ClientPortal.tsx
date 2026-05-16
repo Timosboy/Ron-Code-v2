@@ -43,7 +43,7 @@ export default function ClientPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-dvh bg-gray-50 flex flex-col overflow-hidden">
       {/* Top Bar - Always visible now */}
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -85,7 +85,13 @@ export default function ClientPortal() {
       </header>
 
       {/* Content */}
-      <main className={`flex-1 w-full ${activeTab === 'buscar' ? 'relative' : 'max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24'}`}>
+      <main
+        className={`flex-1 min-h-0 w-full ${
+          viewMode === 0 && activeTab === 'buscar'
+            ? 'relative overflow-hidden'
+            : 'max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 overflow-y-auto'
+        }`}
+      >
         {/* Render Owner views */}
         {viewMode === 1 && activeTab === 'propiedades' && <MisPropiedades />}
         {viewMode === 1 && activeTab === 'ventas' && <MisVentas />}

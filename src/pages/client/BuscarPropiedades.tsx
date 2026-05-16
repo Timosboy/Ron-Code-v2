@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Search, MapPin } from 'lucide-react';
 import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
 import { useAuthStore } from '../../store/authStore';
@@ -9,9 +9,10 @@ import type { Property, TransactionType } from '../../types';
 import BottomSheet from '../../components/BottomSheet';
 import LeadFormModal from '../../components/LeadFormModal';
 import PanoramaViewer from '../../components/PanoramaViewer';
+import SimulatedMap from '../../components/SimulatedMap';
 
 const COCHABAMBA_CENTER = { lat: -17.3935, lng: -66.1570 };
-const MAP_OPTIONS = {
+const MAP_OPTIONS: google.maps.MapOptions = {
   disableDefaultUI: true,
   zoomControl: true,
   mapTypeControl: false,
@@ -27,6 +28,95 @@ const MAP_OPTIONS = {
   ],
 };
 
+const mapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim() ?? '';
+
+type PropertyWithCoords = Property & { lat: number; lng: number };
+
+function MapSpinner() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+      <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+    </div>
+  );
+}
+
+function GoogleMapLayer({
+  properties,
+  selectedId,
+  onSelect,
+  onMapClick,
+}: {
+  properties: PropertyWithCoords[];
+  selectedId?: string;
+  onSelect: (prop: Property) => void;
+  onMapClick: () => void;
+}) {
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: mapsApiKey,
+  });
+
+  const handleMapLoad = useCallback((map: google.maps.Map) => {
+    window.setTimeout(() => {
+      window.google.maps.event.trigger(map, 'resize');
+      map.setCenter(COCHABAMBA_CENTER);
+    }, 0);
+  }, []);
+
+  if (loadError) {
+    return (
+      <SimulatedMap
+        properties={properties}
+        selectedId={selectedId}
+        onPinClick={onSelect}
+      />
+    );
+  }
+
+  if (!isLoaded) {
+    return <MapSpinner />;
+  }
+
+  return (
+    <GoogleMap
+      mapContainerClassName="w-full h-full"
+      mapContainerStyle={{ width: '100%', height: '100%' }}
+      center={COCHABAMBA_CENTER}
+      zoom={13}
+      options={MAP_OPTIONS}
+      onClick={onMapClick}
+      onLoad={handleMapLoad}
+    >
+      {properties.map((prop) => {
+        const isSelected = selectedId === prop.id;
+        const formattedPrice =
+          prop.price >= 1000 ? `${(prop.price / 1000).toFixed(0)}k` : prop.price.toString();
+        const labelText = `${prop.currency === 'USD' ? '$' : 'Bs'}${formattedPrice}`;
+
+        return (
+          <Marker
+            key={prop.id}
+            position={{ lat: prop.lat, lng: prop.lng }}
+            onClick={() => onSelect(prop)}
+            label={{
+              text: labelText,
+              color: isSelected ? '#F9F9F6' : '#4A5D7E',
+              fontWeight: '800',
+              fontSize: '12px',
+              className:
+                'mt-5 bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-gray-200 shadow-sm',
+            }}
+            icon={{
+              url: isSelected
+                ? 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+                : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            }}
+          />
+        );
+      })}
+    </GoogleMap>
+  );
+}
+
 export default function BuscarPropiedades() {
   const user = useAuthStore((s) => s.user);
   const { properties, fetchProperties } = usePropertyStore();
@@ -35,10 +125,6 @@ export default function BuscarPropiedades() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-  });
 
   useEffect(() => {
     fetchProperties({ published_to_map: 'true' });
@@ -55,16 +141,14 @@ export default function BuscarPropiedades() {
     return true;
   });
 
-  // Assign pseudo-random coordinates around Cochabamba for properties without lat/lng
-  const propertiesWithCoords = useMemo(() => {
+  const propertiesWithCoords = useMemo((): PropertyWithCoords[] => {
     return filteredProperties.map((prop, index) => {
-      // Deterministic offset based on index so they don't jump around on re-renders
       const latOffset = (index % 5 - 2) * 0.01;
       const lngOffset = (Math.floor(index / 5) % 5 - 2) * 0.01;
       return {
         ...prop,
-        lat: prop.lat || COCHABAMBA_CENTER.lat + latOffset,
-        lng: prop.lng || COCHABAMBA_CENTER.lng + lngOffset,
+        lat: prop.lat ?? COCHABAMBA_CENTER.lat + latOffset,
+        lng: prop.lng ?? COCHABAMBA_CENTER.lng + lngOffset,
       };
     });
   }, [filteredProperties]);
@@ -83,59 +167,36 @@ export default function BuscarPropiedades() {
     setSelectedProperty(null);
   };
 
-  if (!isLoaded) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="absolute inset-0 w-full h-full pb-16 overflow-hidden bg-gray-100">
-      {/* Fullscreen Map */}
-      <GoogleMap
-        mapContainerStyle={{ width: '100%', height: '100%' }}
-        center={COCHABAMBA_CENTER}
-        zoom={13}
-        options={MAP_OPTIONS}
-        onClick={() => setSelectedProperty(null)}
-      >
-        {propertiesWithCoords.map((prop) => {
-          const isSelected = selectedProperty?.id === prop.id;
-          const formattedPrice = prop.price >= 1000 
-            ? `${(prop.price / 1000).toFixed(0)}k` 
-            : prop.price.toString();
-          const labelText = `${prop.currency === 'USD' ? '$' : 'Bs'}${formattedPrice}`;
+    <div className="relative h-full w-full overflow-hidden bg-gray-100">
+      <div className="absolute inset-0 z-0">
+        {mapsApiKey ? (
+          <GoogleMapLayer
+            properties={propertiesWithCoords}
+            selectedId={selectedProperty?.id}
+            onSelect={setSelectedProperty}
+            onMapClick={() => setSelectedProperty(null)}
+          />
+        ) : (
+          <SimulatedMap
+            properties={filteredProperties}
+            selectedId={selectedProperty?.id}
+            onPinClick={setSelectedProperty}
+          />
+        )}
+      </div>
 
-          return (
-            <Marker
-              key={prop.id}
-              position={{ lat: prop.lat, lng: prop.lng }}
-              onClick={() => setSelectedProperty(prop)}
-              label={{
-                text: labelText,
-                color: isSelected ? '#F9F9F6' : '#4A5D7E',
-                fontWeight: '800',
-                fontSize: '12px',
-                className: 'mt-5 bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-gray-200 shadow-sm'
-              }}
-              icon={{
-                url: isSelected 
-                  ? 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
-                  : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-              }}
-            />
-          );
-        })}
-      </GoogleMap>
+      {!mapsApiKey && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[5] max-w-sm px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 text-center shadow-sm pointer-events-none">
+          Añade <code className="font-mono">VITE_GOOGLE_MAPS_API_KEY</code> en <code className="font-mono">.env</code> y reinicia Vite para ver el mapa real.
+        </div>
+      )}
 
       {/* Floating Panel (Apple Maps Style) */}
-      <div className="absolute top-4 left-4 sm:w-96 w-[calc(100%-2rem)] max-h-[calc(100dvh-6rem)] flex flex-col bg-white/70 backdrop-blur-2xl shadow-2xl rounded-3xl overflow-hidden z-10 pointer-events-auto border border-white/50">
-        {/* Search & Filters Header */}
+      <div className="absolute top-4 left-4 sm:w-96 w-[calc(100%-2rem)] max-h-[calc(100%-2rem)] flex flex-col bg-white/70 backdrop-blur-2xl shadow-2xl rounded-3xl overflow-hidden z-10 pointer-events-auto border border-white/50">
         <div className="p-5 border-b border-gray-200/50 bg-white/50">
           <h1 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">Buscar Propiedades</h1>
-          
+
           <div className="relative mb-4">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -163,8 +224,7 @@ export default function BuscarPropiedades() {
           </div>
         </div>
 
-        {/* Property List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
           {filteredProperties.length === 0 ? (
             <div className="text-center py-10 px-4">
               <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-3" />
@@ -183,28 +243,51 @@ export default function BuscarPropiedades() {
                 }`}
               >
                 <div className="flex gap-3">
-                  <div className={`w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner ${
-                    selectedProperty?.id === prop.id ? 'bg-white/20' : 'bg-gradient-to-br from-gray-100 to-gray-50'
-                  }`}>
+                  <div
+                    className={`w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner ${
+                      selectedProperty?.id === prop.id ? 'bg-white/20' : 'bg-gradient-to-br from-gray-100 to-gray-50'
+                    }`}
+                  >
                     <span className="text-2xl">🏠</span>
                   </div>
                   <div className="flex-1 min-w-0 py-0.5">
-                    <h3 className={`text-sm font-bold truncate mb-0.5 ${selectedProperty?.id === prop.id ? 'text-white' : 'text-gray-900'}`}>
+                    <h3
+                      className={`text-sm font-bold truncate mb-0.5 ${
+                        selectedProperty?.id === prop.id ? 'text-white' : 'text-gray-900'
+                      }`}
+                    >
                       {prop.title}
                     </h3>
-                    <p className={`text-sm font-black mb-1 ${selectedProperty?.id === prop.id ? 'text-violet-100' : 'text-violet-600'}`}>
-                      {prop.currency === 'USD' ? '$' : 'Bs.'}{prop.price.toLocaleString()}
+                    <p
+                      className={`text-sm font-black mb-1 ${
+                        selectedProperty?.id === prop.id ? 'text-violet-100' : 'text-violet-600'
+                      }`}
+                    >
+                      {prop.currency === 'USD' ? '$' : 'Bs.'}
+                      {prop.price.toLocaleString()}
                     </p>
                     <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                        selectedProperty?.id === prop.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}>
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                          selectedProperty?.id === prop.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
                         {TRANSACTION_LABELS[prop.type]}
                       </span>
                       {prop.status_documents === 'saneado' ? (
-                        <div className={`w-2 h-2 rounded-full ${selectedProperty?.id === prop.id ? 'bg-emerald-300' : 'bg-emerald-500'} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} title="Saneado" />
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            selectedProperty?.id === prop.id ? 'bg-emerald-300' : 'bg-emerald-500'
+                          } shadow-[0_0_8px_rgba(16,185,129,0.5)]`}
+                          title="Saneado"
+                        />
                       ) : (
-                        <div className={`w-2 h-2 rounded-full ${selectedProperty?.id === prop.id ? 'bg-rose-300' : 'bg-rose-500'} shadow-[0_0_8px_rgba(244,63,94,0.5)]`} title="Alerta Legal" />
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            selectedProperty?.id === prop.id ? 'bg-rose-300' : 'bg-rose-500'
+                          } shadow-[0_0_8px_rgba(244,63,94,0.5)]`}
+                          title="Alerta Legal"
+                        />
                       )}
                     </div>
                   </div>
@@ -215,7 +298,6 @@ export default function BuscarPropiedades() {
         </div>
       </div>
 
-      {/* Detail Bottom Sheet */}
       <BottomSheet
         isOpen={selectedProperty !== null && !showLeadForm}
         onClose={() => setSelectedProperty(null)}
@@ -247,7 +329,8 @@ export default function BuscarPropiedades() {
             </div>
 
             <p className="text-2xl font-black text-violet-600">
-              {selectedProperty.currency === 'USD' ? '$' : 'Bs.'}{selectedProperty.price.toLocaleString()}
+              {selectedProperty.currency === 'USD' ? '$' : 'Bs.'}
+              {selectedProperty.price.toLocaleString()}
               <span className="text-sm font-medium text-gray-400 ml-2">{selectedProperty.currency}</span>
             </p>
 
@@ -263,7 +346,6 @@ export default function BuscarPropiedades() {
         )}
       </BottomSheet>
 
-      {/* Lead Form Modal */}
       <LeadFormModal
         isOpen={showLeadForm}
         onClose={() => {

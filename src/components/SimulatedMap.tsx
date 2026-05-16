@@ -21,7 +21,7 @@ const PIN_POSITIONS = [
 
 export default function SimulatedMap({ properties, onPinClick, selectedId }: SimulatedMapProps) {
   return (
-    <div className="relative w-full h-full min-h-[400px] bg-gradient-to-br from-violet-50 via-gray-50 to-violet-50 rounded-2xl overflow-hidden border border-gray-100">
+    <div className="relative w-full h-full min-h-0 bg-gradient-to-br from-violet-50 via-gray-50 to-violet-50 overflow-hidden">
       {/* Simulated street grid */}
       <svg className="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
         {/* Horizontal streets */}
