@@ -145,6 +145,48 @@ export interface AnalyzeDocumentResponse {
   summary: string;
 }
 
+// ─── Marketing Types ─────────────────────────────────────────
+
+export type SocialPlatform = 'FACEBOOK' | 'INSTAGRAM';
+
+export interface MarketingContent {
+  title: string;
+  short_description: string;
+  long_description: string;
+  hashtags: string[];
+  cta: string;
+  reel_script: string;
+}
+
+export interface MarketingCampaign {
+  id: string;
+  property_id: string;
+  content: MarketingContent;
+}
+
+export interface SocialPostRecord {
+  id: string;
+  property_id: string;
+  platform: SocialPlatform;
+  status: 'published' | 'simulated';
+  content_title: string;
+}
+
+export interface PublishContentRequest {
+  platforms: SocialPlatform[];
+  content: MarketingContent;
+}
+
+export interface PropertyAnalytics {
+  property_id: string;
+  views: number;
+  clicks: number;
+  saves: number;
+  messages: number;
+  engagement_score: number;
+  posts: SocialPostRecord[];
+}
+
 // ─── CRM Stage Labels ────────────────────────────────────────
 
 export const CRM1_STAGES: Record<number, string> = {

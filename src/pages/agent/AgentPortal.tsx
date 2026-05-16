@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { LogOut, Building2, Layers, Globe, ShoppingCart } from 'lucide-react';
+import { LogOut, Building2, Layers, Globe, ShoppingCart, Megaphone } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import FlujoCorretaje from './FlujoCorretaje';
 import PublicarOferta from './PublicarOferta';
 import FlujoVentas from './FlujoVentas';
+import MarketingDashboard from './MarketingDashboard';
 
 const TABS = [
   { id: 'corretaje', label: 'Flujo Corretaje', icon: Layers },
   { id: 'publicar', label: 'Publicar Oferta', icon: Globe },
   { id: 'ventas', label: 'Flujo de Ventas', icon: ShoppingCart },
+  { id: 'marketing', label: 'Marketing IA', icon: Megaphone },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -77,6 +79,7 @@ export default function AgentPortal() {
         {activeTab === 'corretaje' && <FlujoCorretaje />}
         {activeTab === 'publicar' && <PublicarOferta />}
         {activeTab === 'ventas' && <FlujoVentas />}
+        {activeTab === 'marketing' && <MarketingDashboard />}
       </main>
     </div>
   );

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, Literal
 from mangum import Mangum
 import uuid
+import random
 
 # ─── FastAPI App ────────────────────────────────────────────────
 app = FastAPI(title="PropTech-Flow API", version="1.0.0")
@@ -129,6 +130,18 @@ class AnalyzeDocumentRequest(BaseModel):
     context: Literal["corretaje", "compromiso", "final"]
     transaction_type: Literal["venta", "alquiler", "anticretico"] = "venta"
 
+class MarketingContent(BaseModel):
+    title: str
+    short_description: str
+    long_description: str
+    hashtags: list[str]
+    cta: str
+    reel_script: str
+
+class PublishContentRequest(BaseModel):
+    platforms: list[Literal["FACEBOOK", "INSTAGRAM"]]
+    content: MarketingContent
+
 # ─── In-Memory Database ──────────────────────────────────────
 
 users_db: dict[str, User] = {
@@ -174,6 +187,8 @@ properties_db: dict[str, Property] = {
 }
 
 leads_db: dict[str, LeadCRM2] = {}
+marketing_campaigns_db: dict[str, dict] = {}
+social_posts_db: dict[str, dict] = {}
 
 
 def calc_status_documents(p: Property) -> Literal["saneado", "advertencia"]:
@@ -422,6 +437,137 @@ def analyze_document(req: AnalyzeDocumentRequest):
         "clauses": clauses,
         "summary": f"Análisis completado. Score de seguridad: {score}%. Se encontraron {len([c for c in clauses if c['type'] == 'dangerous'])} cláusula(s) de riesgo.",
     }
+
+
+# ─── Marketing Helpers ────────────────────────────────────────
+
+def generate_marketing_content(prop: Property) -> MarketingContent:
+    type_map = {"venta": "Venta", "alquiler": "Alquiler", "anticretico": "Anticrético"}
+    type_label = type_map[prop.type]
+    price_str = f"USD {prop.price:,.0f}" if prop.currency == "USD" else f"BOB {prop.price:,.0f}"
+    doc_note = "✅ Documentos saneados" if prop.status_documents == "saneado" else "⚠️ Consultar documentación"
+
+    title_map = {
+        "venta": f"¡{prop.title} – Tu nuevo hogar te espera!",
+        "alquiler": f"{prop.title} – Disponible para alquiler inmediato",
+        "anticretico": f"{prop.title} – Oportunidad única en anticrético",
+    }
+    hashtags = [
+        f"#{prop.type.capitalize()}Bolivia",
+        "#InmuebleBolivia",
+        "#PropTechFlow",
+        "#BienesRaices",
+        "#Inmuebles",
+        "#PropiedadSaneada" if prop.status_documents == "saneado" else "#OportunidadInmobiliaria",
+    ]
+
+    return MarketingContent(
+        title=title_map[prop.type],
+        short_description=(
+            f"{prop.description[:120]}... "
+            f"Precio: {price_str} | {type_label}. {doc_note}."
+        ),
+        long_description=(
+            f"🏠 {prop.title}\n\n"
+            f"{prop.description}\n\n"
+            f"💰 Precio: {price_str}\n"
+            f"📋 Modalidad: {type_label}\n"
+            f"📄 Documentación: {doc_note}\n\n"
+            f"¿Te imaginas aquí? Esta es tu oportunidad de encontrar el inmueble ideal.\n"
+            f"Contáctanos hoy y agenda tu visita sin compromiso.\n\n"
+            f"#PropTechFlow #InmuebleBolivia"
+        ),
+        hashtags=hashtags,
+        cta="📩 ¡Escríbenos ahora y agenda tu visita! No dejes pasar esta oportunidad.",
+        reel_script=(
+            f"[ESCENA 1 – 0:00-0:05]\n"
+            f"Toma exterior / fachada del inmueble.\n"
+            f"Texto animado: \"{prop.title}\"\n"
+            f"Música: Dinámica y moderna.\n\n"
+            f"[ESCENA 2 – 0:05-0:15]\n"
+            f"Recorrido interior: sala principal, cocina, dormitorios.\n"
+            f"Voz en off: \"{prop.description[:80]}...\"\n\n"
+            f"[ESCENA 3 – 0:15-0:22]\n"
+            f"Primer plano de acabados y características destacadas.\n"
+            f"Texto en pantalla: \"{price_str} | {type_label}\"\n\n"
+            f"[ESCENA 4 – 0:22-0:28]\n"
+            f"Panorámica final del inmueble o zona.\n"
+            f"Voz en off: \"¡Contáctanos hoy! Tu inmueble ideal te espera.\"\n\n"
+            f"[CIERRE – 0:28-0:30]\n"
+            f"Logo PropTech-Flow sobre fondo degradado violeta.\n"
+            f"Texto: \"Agenda tu visita – PropTech-Flow\""
+        ),
+    )
+
+
+def generate_mock_analytics(property_id: str, posts: list) -> dict:
+    rng = random.Random(sum(ord(c) for c in property_id))
+    views = rng.randint(1200, 6500)
+    clicks = rng.randint(80, max(81, views // 6))
+    saves = rng.randint(15, max(16, clicks // 3))
+    messages = rng.randint(5, max(6, saves // 2))
+    raw_score = (clicks + saves * 2 + messages * 3) / max(views, 1) * 100
+    return {
+        "property_id": property_id,
+        "views": views,
+        "clicks": clicks,
+        "saves": saves,
+        "messages": messages,
+        "engagement_score": round(min(raw_score, 9.9), 1),
+        "posts": posts,
+    }
+
+
+# ─── Marketing Endpoints ──────────────────────────────────────
+
+@app.post("/api/properties/{property_id}/generate-marketing")
+def generate_marketing(property_id: str):
+    if property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    prop = properties_db[property_id]
+    content = generate_marketing_content(prop)
+    cid = f"mc{uuid.uuid4().hex[:8]}"
+    campaign = {"id": cid, "property_id": property_id, "content": content.model_dump()}
+    marketing_campaigns_db[cid] = campaign
+    return campaign
+
+
+@app.post("/api/properties/{property_id}/publish")
+def publish_property(property_id: str, req: PublishContentRequest):
+    if property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    posts = []
+    for platform in req.platforms:
+        pid = f"sp{uuid.uuid4().hex[:8]}"
+        post = {
+            "id": pid,
+            "property_id": property_id,
+            "platform": platform,
+            "status": "simulated",
+            "content_title": req.content.title,
+        }
+        social_posts_db[pid] = post
+        posts.append(post)
+    return {"published": len(posts), "posts": posts}
+
+
+@app.get("/api/properties/{property_id}/analytics")
+def get_property_analytics(property_id: str):
+    if property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    posts = [p for p in social_posts_db.values() if p["property_id"] == property_id]
+    return generate_mock_analytics(property_id, posts)
+
+
+@app.get("/api/owners/properties/{property_id}/analytics")
+def get_owner_property_analytics(property_id: str, owner_id: str = ""):
+    if property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    prop = properties_db[property_id]
+    if owner_id and prop.owner_id != owner_id:
+        raise HTTPException(status_code=403, detail="No autorizado para ver esta propiedad")
+    posts = [p for p in social_posts_db.values() if p["property_id"] == property_id]
+    return generate_mock_analytics(property_id, posts)
 
 
 # ─── Vercel Serverless Handler ────────────────────────────────

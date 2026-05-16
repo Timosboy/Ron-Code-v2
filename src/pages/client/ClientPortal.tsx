@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Home, TrendingUp, Search, ShoppingBag, LogOut, Building2 } from 'lucide-react';
+import { Home, TrendingUp, Search, ShoppingBag, BarChart2, LogOut, Building2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import MisPropiedades from './MisPropiedades';
 import MisVentas from './MisVentas';
 import BuscarPropiedades from './BuscarPropiedades';
 import MisCompras from './MisCompras';
+import PropietarioEstadisticas from './PropietarioEstadisticas';
 
 const TABS = [
   { id: 'propiedades', label: 'Propiedades', icon: Home },
   { id: 'ventas', label: 'Mis Ventas', icon: TrendingUp },
   { id: 'buscar', label: 'Buscar', icon: Search },
   { id: 'compras', label: 'Mis Compras', icon: ShoppingBag },
+  { id: 'estadisticas', label: 'Estadísticas', icon: BarChart2 },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -55,6 +57,7 @@ export default function ClientPortal() {
         {activeTab === 'ventas' && <MisVentas />}
         {activeTab === 'buscar' && <BuscarPropiedades />}
         {activeTab === 'compras' && <MisCompras />}
+        {activeTab === 'estadisticas' && <PropietarioEstadisticas />}
       </main>
 
       {/* Bottom Tab Bar (iOS style) */}
