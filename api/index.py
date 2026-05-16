@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Literal
+from pydantic import BaseModel, Field
+from typing import Optional, Literal, List
 from mangum import Mangum
 import uuid
 import random
+from datetime import datetime, timedelta
 
 # ─── FastAPI App ────────────────────────────────────────────────
 app = FastAPI(title="PropTech-Flow API", version="1.0.0")
@@ -142,6 +143,80 @@ class PublishContentRequest(BaseModel):
     platforms: list[Literal["FACEBOOK", "INSTAGRAM"]]
     content: MarketingContent
 
+# ─── Buyer CRM Models ─────────────────────────────────────────
+
+PIPELINE_STAGES = ["CONTACT", "VISIT", "INTEREST", "COMMITMENT_SIGNATURE", "PAYMENT", "COMPLETED"]
+INTERACTION_TYPES = ["VIEW", "CLICK", "FAVORITE", "MESSAGE", "VISIT_REQUEST"]
+CLASSIFICATION_TYPES = ["HOT_LEAD", "WARM_LEAD", "COLD_LEAD"]
+
+class BuyerPreferences(BaseModel):
+    id: str
+    buyer_id: str
+    preferred_zones: List[str] = []
+    budget_min: float = 0
+    budget_max: float = 0
+    property_type: Optional[Literal["venta", "alquiler", "anticretico"]] = None
+    bedrooms_min: int = 0
+    bedrooms_max: int = 0
+    operation_type: Optional[str] = None
+    created_at: str = ""
+    updated_at: str = ""
+
+class BuyerInteraction(BaseModel):
+    id: str
+    buyer_id: str
+    property_id: str
+    interaction_type: Literal["VIEW", "CLICK", "FAVORITE", "MESSAGE", "VISIT_REQUEST"]
+    timestamp: str
+
+class SavedProperty(BaseModel):
+    id: str
+    buyer_id: str
+    property_id: str
+    saved_at: str
+
+class LeadStageHistory(BaseModel):
+    id: str
+    lead_id: str
+    from_stage: str
+    to_stage: str
+    changed_at: str
+
+class LeadClassification(BaseModel):
+    lead_id: str
+    buyer_id: str
+    score: int = 0
+    classification: Literal["HOT_LEAD", "WARM_LEAD", "COLD_LEAD"] = "COLD_LEAD"
+    breakdown: dict = {}
+    classified_at: str = ""
+
+# ─── Buyer CRM Request Schemas ────────────────────────────────
+
+class CreateBuyerPreferencesRequest(BaseModel):
+    preferred_zones: List[str] = []
+    budget_min: float = 0
+    budget_max: float = 0
+    property_type: Optional[Literal["venta", "alquiler", "anticretico"]] = None
+    bedrooms_min: int = 0
+    bedrooms_max: int = 0
+    operation_type: Optional[str] = None
+
+class UpdateBuyerPreferencesRequest(BaseModel):
+    preferred_zones: Optional[List[str]] = None
+    budget_min: Optional[float] = None
+    budget_max: Optional[float] = None
+    property_type: Optional[Literal["venta", "alquiler", "anticretico"]] = None
+    bedrooms_min: Optional[int] = None
+    bedrooms_max: Optional[int] = None
+    operation_type: Optional[str] = None
+
+class TrackInteractionRequest(BaseModel):
+    property_id: str
+    interaction_type: Literal["VIEW", "CLICK", "FAVORITE", "MESSAGE", "VISIT_REQUEST"]
+
+class UpdatePipelineStageRequest(BaseModel):
+    stage: Literal["CONTACT", "VISIT", "INTEREST", "COMMITMENT_SIGNATURE", "PAYMENT", "COMPLETED"]
+
 # ─── In-Memory Database ──────────────────────────────────────
 
 users_db: dict[str, User] = {
@@ -186,9 +261,88 @@ properties_db: dict[str, Property] = {
     ),
 }
 
-leads_db: dict[str, LeadCRM2] = {}
+leads_db: dict[str, LeadCRM2] = {
+    "l1": LeadCRM2(id="l1", property_id="p1", buyer_id="u1", buyer_name="María López",
+                  buyer_phone="+591 71234567", buyer_email="maria@client.com", agent_id="u3",
+                  stage_crm2=1, offer_price=180000, payment_method="credito_bancario"),
+    "l2": LeadCRM2(id="l2", property_id="p1", buyer_id="u2", buyer_name="Carlos Mendoza",
+                  buyer_phone="+591 76543210", buyer_email="carlos@client.com", agent_id="u3",
+                  stage_crm2=2, offer_price=182000, payment_method="efectivo"),
+    "l3": LeadCRM2(id="l3", property_id="p3", buyer_id="u1", buyer_name="María López",
+                  buyer_phone="+591 71234567", buyer_email="maria@client.com", agent_id="u4",
+                  stage_crm2=1, offer_price=1100, payment_method="fondos_propios"),
+    "l4": LeadCRM2(id="l4", property_id="p4", buyer_id="u2", buyer_name="Carlos Mendoza",
+                  buyer_phone="+591 76543210", buyer_email="carlos@client.com", agent_id="u5",
+                  stage_crm2=1, offer_price=43000, payment_method="efectivo"),
+}
 marketing_campaigns_db: dict[str, dict] = {}
 social_posts_db: dict[str, dict] = {}
+
+# ─── Buyer CRM In-Memory Stores ──────────────────────────────
+
+_now = datetime.utcnow()
+_ts = lambda days_ago=0: (_now - timedelta(days=days_ago)).isoformat()
+
+buyer_preferences_db: dict[str, BuyerPreferences] = {
+    "u1": BuyerPreferences(id="bp1", buyer_id="u1", preferred_zones=["Calacoto", "Sopocachi", "Zona Sur"],
+                           budget_min=100000, budget_max=200000, property_type="venta",
+                           bedrooms_min=2, bedrooms_max=4, operation_type="compra",
+                           created_at=_ts(30), updated_at=_ts(2)),
+    "u2": BuyerPreferences(id="bp2", buyer_id="u2", preferred_zones=["Equipetrol", "Miraflores"],
+                           budget_min=30000, budget_max=50000, property_type="anticretico",
+                           bedrooms_min=1, bedrooms_max=3, operation_type="anticretico",
+                           created_at=_ts(15), updated_at=_ts(5)),
+}
+
+buyer_interactions_db: dict[str, list] = {
+    "u1": [
+        BuyerInteraction(id="bi1", buyer_id="u1", property_id="p1", interaction_type="VIEW", timestamp=_ts(10)),
+        BuyerInteraction(id="bi2", buyer_id="u1", property_id="p1", interaction_type="VIEW", timestamp=_ts(8)),
+        BuyerInteraction(id="bi3", buyer_id="u1", property_id="p1", interaction_type="CLICK", timestamp=_ts(7)),
+        BuyerInteraction(id="bi4", buyer_id="u1", property_id="p1", interaction_type="FAVORITE", timestamp=_ts(6)),
+        BuyerInteraction(id="bi5", buyer_id="u1", property_id="p1", interaction_type="MESSAGE", timestamp=_ts(5)),
+        BuyerInteraction(id="bi6", buyer_id="u1", property_id="p1", interaction_type="VISIT_REQUEST", timestamp=_ts(4)),
+        BuyerInteraction(id="bi7", buyer_id="u1", property_id="p3", interaction_type="VIEW", timestamp=_ts(3)),
+        BuyerInteraction(id="bi8", buyer_id="u1", property_id="p3", interaction_type="CLICK", timestamp=_ts(2)),
+        BuyerInteraction(id="bi9", buyer_id="u1", property_id="p3", interaction_type="MESSAGE", timestamp=_ts(1)),
+    ],
+    "u2": [
+        BuyerInteraction(id="bi10", buyer_id="u2", property_id="p4", interaction_type="VIEW", timestamp=_ts(12)),
+        BuyerInteraction(id="bi11", buyer_id="u2", property_id="p4", interaction_type="VIEW", timestamp=_ts(9)),
+        BuyerInteraction(id="bi12", buyer_id="u2", property_id="p4", interaction_type="CLICK", timestamp=_ts(7)),
+        BuyerInteraction(id="bi13", buyer_id="u2", property_id="p1", interaction_type="VIEW", timestamp=_ts(5)),
+        BuyerInteraction(id="bi14", buyer_id="u2", property_id="p1", interaction_type="CLICK", timestamp=_ts(3)),
+    ],
+}
+
+saved_properties_db: dict[str, list] = {
+    "u1": [
+        SavedProperty(id="sp1", buyer_id="u1", property_id="p1", saved_at=_ts(6)),
+        SavedProperty(id="sp2", buyer_id="u1", property_id="p3", saved_at=_ts(2)),
+    ],
+    "u2": [
+        SavedProperty(id="sp3", buyer_id="u2", property_id="p4", saved_at=_ts(7)),
+    ],
+}
+
+lead_stage_history_db: dict[str, list] = {
+    "l1": [LeadStageHistory(id="lsh1", lead_id="l1", from_stage="CONTACT", to_stage="CONTACT", changed_at=_ts(10))],
+    "l2": [
+        LeadStageHistory(id="lsh2", lead_id="l2", from_stage="CONTACT", to_stage="CONTACT", changed_at=_ts(8)),
+        LeadStageHistory(id="lsh3", lead_id="l2", from_stage="CONTACT", to_stage="VISIT", changed_at=_ts(5)),
+    ],
+    "l3": [LeadStageHistory(id="lsh4", lead_id="l3", from_stage="CONTACT", to_stage="CONTACT", changed_at=_ts(3))],
+    "l4": [LeadStageHistory(id="lsh5", lead_id="l4", from_stage="CONTACT", to_stage="CONTACT", changed_at=_ts(12))],
+}
+
+lead_pipeline_stages_db: dict[str, str] = {
+    "l1": "INTEREST",
+    "l2": "VISIT",
+    "l3": "CONTACT",
+    "l4": "CONTACT",
+}
+
+lead_classifications_db: dict[str, LeadClassification] = {}
 
 
 def calc_status_documents(p: Property) -> Literal["saneado", "advertencia"]:
@@ -436,6 +590,273 @@ def analyze_document(req: AnalyzeDocumentRequest):
         "score": score,
         "clauses": clauses,
         "summary": f"Análisis completado. Score de seguridad: {score}%. Se encontraron {len([c for c in clauses if c['type'] == 'dangerous'])} cláusula(s) de riesgo.",
+    }
+
+
+# ─── Buyer CRM: Lead Scoring Service ─────────────────────────
+
+def calculate_lead_score(buyer_id: str) -> dict:
+    """Heuristic AI lead scoring based on engagement metrics."""
+    interactions = buyer_interactions_db.get(buyer_id, [])
+    saved = saved_properties_db.get(buyer_id, [])
+    prefs = buyer_preferences_db.get(buyer_id)
+
+    # Count interaction types
+    views = sum(1 for i in interactions if i.interaction_type == "VIEW")
+    clicks = sum(1 for i in interactions if i.interaction_type == "CLICK")
+    favorites = sum(1 for i in interactions if i.interaction_type == "FAVORITE")
+    messages = sum(1 for i in interactions if i.interaction_type == "MESSAGE")
+    visit_requests = sum(1 for i in interactions if i.interaction_type == "VISIT_REQUEST")
+
+    # Repeated views on same property
+    property_views: dict[str, int] = {}
+    for i in interactions:
+        if i.interaction_type == "VIEW":
+            property_views[i.property_id] = property_views.get(i.property_id, 0) + 1
+    repeat_views = sum(1 for v in property_views.values() if v > 1)
+
+    # Engagement recency (days since last interaction)
+    recency_score = 0
+    if interactions:
+        try:
+            last = max(datetime.fromisoformat(i.timestamp) for i in interactions)
+            days_ago = (datetime.utcnow() - last).days
+            recency_score = max(0, 10 - days_ago) * 10  # 0-100
+        except Exception:
+            recency_score = 0
+
+    # Preference completeness
+    pref_score = 0
+    if prefs:
+        fields = [prefs.preferred_zones, prefs.budget_max > 0, prefs.property_type, prefs.bedrooms_max > 0]
+        pref_score = sum(1 for f in fields if f) * 25  # 0-100
+
+    # Weighted scoring
+    breakdown = {
+        "views": min(views * 5, 100),
+        "repeat_views": min(repeat_views * 20, 100),
+        "clicks": min(clicks * 10, 100),
+        "messages": min(messages * 15, 100),
+        "visit_requests": min(visit_requests * 25, 100),
+        "favorites": min(favorites * 15, 100),
+        "saved_properties": min(len(saved) * 20, 100),
+        "preference_completeness": pref_score,
+        "engagement_recency": recency_score,
+    }
+
+    weights = {
+        "views": 0.08, "repeat_views": 0.15, "clicks": 0.08,
+        "messages": 0.15, "visit_requests": 0.20, "favorites": 0.08,
+        "saved_properties": 0.08, "preference_completeness": 0.08, "engagement_recency": 0.10,
+    }
+
+    total = sum(breakdown[k] * weights[k] for k in weights)
+    score = min(int(total), 100)
+
+    if score >= 70:
+        classification = "HOT_LEAD"
+    elif score >= 40:
+        classification = "WARM_LEAD"
+    else:
+        classification = "COLD_LEAD"
+
+    return {"score": score, "classification": classification, "breakdown": breakdown}
+
+
+# ─── Buyer CRM Endpoints ─────────────────────────────────────
+
+@app.get("/api/buyers/{buyer_id}/preferences")
+def get_buyer_preferences(buyer_id: str):
+    if buyer_id not in buyer_preferences_db:
+        return {"buyer_id": buyer_id, "preferences": None}
+    return buyer_preferences_db[buyer_id].model_dump()
+
+
+@app.post("/api/buyers/{buyer_id}/preferences")
+def create_buyer_preferences(buyer_id: str, req: CreateBuyerPreferencesRequest):
+    now = datetime.utcnow().isoformat()
+    bp = BuyerPreferences(
+        id=f"bp{uuid.uuid4().hex[:8]}", buyer_id=buyer_id,
+        **req.model_dump(), created_at=now, updated_at=now,
+    )
+    buyer_preferences_db[buyer_id] = bp
+    return bp.model_dump()
+
+
+@app.patch("/api/buyers/{buyer_id}/preferences")
+def update_buyer_preferences(buyer_id: str, req: UpdateBuyerPreferencesRequest):
+    if buyer_id not in buyer_preferences_db:
+        raise HTTPException(status_code=404, detail="Preferencias no encontradas")
+    bp = buyer_preferences_db[buyer_id]
+    for key, value in req.model_dump(exclude_none=True).items():
+        setattr(bp, key, value)
+    bp.updated_at = datetime.utcnow().isoformat()
+    buyer_preferences_db[buyer_id] = bp
+    return bp.model_dump()
+
+
+@app.post("/api/buyers/{buyer_id}/interactions")
+def track_interaction(buyer_id: str, req: TrackInteractionRequest):
+    if req.property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    interaction = BuyerInteraction(
+        id=f"bi{uuid.uuid4().hex[:8]}", buyer_id=buyer_id,
+        property_id=req.property_id, interaction_type=req.interaction_type,
+        timestamp=datetime.utcnow().isoformat(),
+    )
+    if buyer_id not in buyer_interactions_db:
+        buyer_interactions_db[buyer_id] = []
+    buyer_interactions_db[buyer_id].append(interaction)
+    return interaction.model_dump()
+
+
+@app.get("/api/buyers/{buyer_id}/interactions")
+def get_buyer_interactions(buyer_id: str):
+    interactions = buyer_interactions_db.get(buyer_id, [])
+    return [i.model_dump() for i in interactions]
+
+
+@app.post("/api/buyers/{buyer_id}/saved-properties")
+def save_property(buyer_id: str, property_id: str):
+    if property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    sp = SavedProperty(
+        id=f"sp{uuid.uuid4().hex[:8]}", buyer_id=buyer_id,
+        property_id=property_id, saved_at=datetime.utcnow().isoformat(),
+    )
+    if buyer_id not in saved_properties_db:
+        saved_properties_db[buyer_id] = []
+    saved_properties_db[buyer_id].append(sp)
+    return sp.model_dump()
+
+
+@app.get("/api/buyers/{buyer_id}/saved-properties")
+def get_saved_properties(buyer_id: str):
+    saved = saved_properties_db.get(buyer_id, [])
+    return [s.model_dump() for s in saved]
+
+
+@app.delete("/api/buyers/{buyer_id}/saved-properties/{property_id}")
+def remove_saved_property(buyer_id: str, property_id: str):
+    if buyer_id in saved_properties_db:
+        saved_properties_db[buyer_id] = [s for s in saved_properties_db[buyer_id] if s.property_id != property_id]
+    return {"status": "removed"}
+
+
+@app.patch("/api/agents/leads/{lead_id}/stage")
+def update_pipeline_stage(lead_id: str, req: UpdatePipelineStageRequest):
+    if lead_id not in leads_db:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    old_stage = lead_pipeline_stages_db.get(lead_id, "CONTACT")
+    lead_pipeline_stages_db[lead_id] = req.stage
+    # Record history
+    history = LeadStageHistory(
+        id=f"lsh{uuid.uuid4().hex[:8]}", lead_id=lead_id,
+        from_stage=old_stage, to_stage=req.stage,
+        changed_at=datetime.utcnow().isoformat(),
+    )
+    if lead_id not in lead_stage_history_db:
+        lead_stage_history_db[lead_id] = []
+    lead_stage_history_db[lead_id].append(history)
+    return {"lead_id": lead_id, "stage": req.stage, "history": history.model_dump()}
+
+
+@app.get("/api/agents/leads/pipeline")
+def get_pipeline(agent_id: Optional[str] = None):
+    agent_leads = list(leads_db.values())
+    if agent_id:
+        agent_leads = [l for l in agent_leads if l.agent_id == agent_id]
+
+    pipeline: dict[str, list] = {stage: [] for stage in PIPELINE_STAGES}
+    for lead in agent_leads:
+        stage = lead_pipeline_stages_db.get(lead.id, "CONTACT")
+        classification = lead_classifications_db.get(lead.id)
+        lead_data = lead.model_dump()
+        lead_data["pipeline_stage"] = stage
+        lead_data["classification"] = classification.model_dump() if classification else None
+        lead_data["preferences"] = buyer_preferences_db.get(lead.buyer_id, None)
+        if lead_data["preferences"]:
+            lead_data["preferences"] = lead_data["preferences"].model_dump()
+        pipeline[stage].append(lead_data)
+    return pipeline
+
+
+@app.post("/api/agents/leads/{lead_id}/classify")
+def classify_lead(lead_id: str):
+    if lead_id not in leads_db:
+        raise HTTPException(status_code=404, detail="Lead no encontrado")
+    lead = leads_db[lead_id]
+    result = calculate_lead_score(lead.buyer_id)
+    classification = LeadClassification(
+        lead_id=lead_id, buyer_id=lead.buyer_id,
+        score=result["score"], classification=result["classification"],
+        breakdown=result["breakdown"], classified_at=datetime.utcnow().isoformat(),
+    )
+    lead_classifications_db[lead_id] = classification
+    return classification.model_dump()
+
+
+@app.get("/api/agents/{agent_id}/dashboard")
+def get_agent_dashboard(agent_id: str):
+    agent_leads = [l for l in leads_db.values() if l.agent_id == agent_id]
+    lead_ids = [l.id for l in agent_leads]
+
+    # Auto-classify any unclassified leads
+    for lead in agent_leads:
+        if lead.id not in lead_classifications_db:
+            result = calculate_lead_score(lead.buyer_id)
+            lead_classifications_db[lead.id] = LeadClassification(
+                lead_id=lead.id, buyer_id=lead.buyer_id,
+                score=result["score"], classification=result["classification"],
+                breakdown=result["breakdown"], classified_at=datetime.utcnow().isoformat(),
+            )
+
+    classifications = [lead_classifications_db[lid].model_dump() for lid in lead_ids if lid in lead_classifications_db]
+    hot_leads = [c for c in classifications if c["classification"] == "HOT_LEAD"]
+    warm_leads = [c for c in classifications if c["classification"] == "WARM_LEAD"]
+    avg_score = int(sum(c["score"] for c in classifications) / max(len(classifications), 1))
+
+    # Recent interactions from all buyers of this agent's leads
+    buyer_ids = list(set(l.buyer_id for l in agent_leads))
+    all_interactions = []
+    for bid in buyer_ids:
+        for inter in buyer_interactions_db.get(bid, []):
+            d = inter.model_dump()
+            d["buyer_name"] = next((u.name for u in users_db.values() if u.id == bid), bid)
+            prop = properties_db.get(inter.property_id)
+            d["property_title"] = prop.title if prop else inter.property_id
+            all_interactions.append(d)
+    all_interactions.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    # Pipeline summary
+    pipeline_summary = {stage: 0 for stage in PIPELINE_STAGES}
+    for lead in agent_leads:
+        stage = lead_pipeline_stages_db.get(lead.id, "CONTACT")
+        pipeline_summary[stage] += 1
+
+    # Build enriched leads list
+    enriched_leads = []
+    for lead in agent_leads:
+        ld = lead.model_dump()
+        ld["pipeline_stage"] = lead_pipeline_stages_db.get(lead.id, "CONTACT")
+        ld["classification"] = lead_classifications_db.get(lead.id)
+        if ld["classification"]:
+            ld["classification"] = ld["classification"].model_dump()
+        ld["preferences"] = buyer_preferences_db.get(lead.buyer_id)
+        if ld["preferences"]:
+            ld["preferences"] = ld["preferences"].model_dump()
+        enriched_leads.append(ld)
+
+    return {
+        "total_leads": len(agent_leads),
+        "hot_leads_count": len(hot_leads),
+        "warm_leads_count": len(warm_leads),
+        "cold_leads_count": len(classifications) - len(hot_leads) - len(warm_leads),
+        "avg_score": avg_score,
+        "classifications": classifications,
+        "recent_interactions": all_interactions[:15],
+        "pipeline_summary": pipeline_summary,
+        "leads": enriched_leads,
     }
 
 

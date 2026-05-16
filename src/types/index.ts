@@ -216,3 +216,102 @@ export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   credito_bancario: 'Crédito Bancario',
   fondos_propios: 'Fondos Propios',
 };
+
+// ─── Buyer CRM Intelligence Types ─────────────────────────────
+
+export type InteractionType = 'VIEW' | 'CLICK' | 'FAVORITE' | 'MESSAGE' | 'VISIT_REQUEST';
+export type ClassificationType = 'HOT_LEAD' | 'WARM_LEAD' | 'COLD_LEAD';
+export type PipelineStage = 'CONTACT' | 'VISIT' | 'INTEREST' | 'COMMITMENT_SIGNATURE' | 'PAYMENT' | 'COMPLETED';
+
+export interface BuyerPreferences {
+  id: string;
+  buyer_id: string;
+  preferred_zones: string[];
+  budget_min: number;
+  budget_max: number;
+  property_type: TransactionType | null;
+  bedrooms_min: number;
+  bedrooms_max: number;
+  operation_type: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BuyerInteraction {
+  id: string;
+  buyer_id: string;
+  property_id: string;
+  interaction_type: InteractionType;
+  timestamp: string;
+  buyer_name?: string;
+  property_title?: string;
+}
+
+export interface SavedPropertyRecord {
+  id: string;
+  buyer_id: string;
+  property_id: string;
+  saved_at: string;
+}
+
+export interface LeadStageHistory {
+  id: string;
+  lead_id: string;
+  from_stage: string;
+  to_stage: string;
+  changed_at: string;
+}
+
+export interface LeadClassification {
+  lead_id: string;
+  buyer_id: string;
+  score: number;
+  classification: ClassificationType;
+  breakdown: Record<string, number>;
+  classified_at: string;
+}
+
+export interface EnrichedLead extends LeadCRM2 {
+  pipeline_stage: PipelineStage;
+  classification: LeadClassification | null;
+  preferences: BuyerPreferences | null;
+}
+
+export interface DashboardData {
+  total_leads: number;
+  hot_leads_count: number;
+  warm_leads_count: number;
+  cold_leads_count: number;
+  avg_score: number;
+  classifications: LeadClassification[];
+  recent_interactions: BuyerInteraction[];
+  pipeline_summary: Record<PipelineStage, number>;
+  leads: EnrichedLead[];
+}
+
+export const PIPELINE_STAGE_LABELS: Record<PipelineStage, string> = {
+  CONTACT: 'Contacto',
+  VISIT: 'Visita',
+  INTEREST: 'Interés',
+  COMMITMENT_SIGNATURE: 'Compromiso',
+  PAYMENT: 'Pago',
+  COMPLETED: 'Completado',
+};
+
+export const PIPELINE_STAGES_ORDER: PipelineStage[] = [
+  'CONTACT', 'VISIT', 'INTEREST', 'COMMITMENT_SIGNATURE', 'PAYMENT', 'COMPLETED',
+];
+
+export const CLASSIFICATION_LABELS: Record<ClassificationType, string> = {
+  HOT_LEAD: '🔥 Caliente',
+  WARM_LEAD: '🟡 Tibio',
+  COLD_LEAD: '🔵 Frío',
+};
+
+export const INTERACTION_LABELS: Record<InteractionType, string> = {
+  VIEW: '👁️ Vista',
+  CLICK: '🖱️ Click',
+  FAVORITE: '❤️ Favorito',
+  MESSAGE: '💬 Mensaje',
+  VISIT_REQUEST: '📅 Visita',
+};
