@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Play, PenTool, CheckCircle, DollarSign, FileText } from 'lucide-react';
+import { Play, PenTool, CheckCircle, DollarSign, FileText, ShoppingCart, Brain } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useLeadStore } from '../../store/leadStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import KanbanBoard from '../../components/KanbanBoard';
 import AIDocumentAnalyzer from '../../components/AIDocumentAnalyzer';
+import CRMDashboard from '../../components/CRMDashboard';
 import { PAYMENT_LABELS } from '../../types';
 import type { DocumentContext } from '../../types';
+
+type SubTab = 'pipeline' | 'intelligence';
 
 const COLUMNS = [
   { id: 1, title: 'Leads Compradores', color: 'bg-amber-400' },
@@ -24,6 +27,7 @@ export default function FlujoVentas() {
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
   const [reservationAmounts, setReservationAmounts] = useState<Record<string, string>>({});
   const [notaryNumbers, setNotaryNumbers] = useState<Record<string, string>>({});
+  const [subTab, setSubTab] = useState<SubTab>('pipeline');
 
   useEffect(() => {
     if (user) {
@@ -227,26 +231,56 @@ export default function FlujoVentas() {
         <p className="text-sm text-gray-400 mt-0.5">CRM 2 — Gestión de compradores</p>
       </div>
 
-      <KanbanBoard columns={COLUMNS} renderCards={renderCards} />
+      {/* Sub-tab Navigation */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setSubTab('pipeline')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            subTab === 'pipeline'
+              ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
+              : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <ShoppingCart className="w-3.5 h-3.5" /> Pipeline Ventas
+        </button>
+        <button
+          onClick={() => setSubTab('intelligence')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            subTab === 'intelligence'
+              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-600/20'
+              : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <Brain className="w-3.5 h-3.5" /> CRM Inteligente
+        </button>
+      </div>
 
-      <AIDocumentAnalyzer
-        isOpen={showAnalyzer}
-        onClose={() => setShowAnalyzer(false)}
-        context={analyzerContext}
-        transactionType={
-          activeLeadId
-            ? getProperty(leads.find((l) => l.id === activeLeadId)?.property_id || '')?.type || 'venta'
-            : 'venta'
-        }
-        onSign={(filename) => {
-          if (!activeLeadId) return;
-          if (analyzerContext === 'compromiso') {
-            handleSignCompromiso(activeLeadId, filename);
-          } else {
-            handleSignFinal(activeLeadId, filename);
-          }
-        }}
-      />
+      {subTab === 'pipeline' && (
+        <>
+          <KanbanBoard columns={COLUMNS} renderCards={renderCards} />
+          <AIDocumentAnalyzer
+            isOpen={showAnalyzer}
+            onClose={() => setShowAnalyzer(false)}
+            context={analyzerContext}
+            transactionType={
+              activeLeadId
+                ? getProperty(leads.find((l) => l.id === activeLeadId)?.property_id || '')?.type || 'venta'
+                : 'venta'
+            }
+            onSign={(filename) => {
+              if (!activeLeadId) return;
+              if (analyzerContext === 'compromiso') {
+                handleSignCompromiso(activeLeadId, filename);
+              } else {
+                handleSignFinal(activeLeadId, filename);
+              }
+            }}
+          />
+        </>
+      )}
+
+      {subTab === 'intelligence' && <CRMDashboard />}
     </div>
   );
 }
+
