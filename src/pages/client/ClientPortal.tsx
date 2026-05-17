@@ -25,7 +25,8 @@ export default function ClientPortal() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top Bar */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-40">
+      {activeTab !== 'buscar' && (
+        <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
@@ -49,10 +50,11 @@ export default function ClientPortal() {
             </button>
           </div>
         </div>
-      </header>
+        </header>
+      )}
 
       {/* Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 pb-24">
+      <main className={`flex-1 w-full ${activeTab === 'buscar' ? 'relative h-[100dvh]' : 'max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24'}`}>
         {activeTab === 'propiedades' && <MisPropiedades />}
         {activeTab === 'ventas' && <MisVentas />}
         {activeTab === 'buscar' && <BuscarPropiedades />}
