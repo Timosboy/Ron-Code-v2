@@ -58,7 +58,7 @@ function LeadCard({ lead, onClassify, classifying }: {
       )}
       <div className="flex items-center gap-1.5 mt-2">
         <span className="px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 text-[10px] font-semibold">
-          <DollarSign className="w-3 h-3 inline" />${lead.offer_price.toLocaleString()}
+          <DollarSign className="w-3 h-3 inline" />Etapa {lead.stage_crm2}
         </span>
       </div>
       {lead.preferences && (
@@ -208,7 +208,7 @@ export default function CRMDashboard() {
                   <ScoreRing score={lead.classification!.score} size={36} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-gray-900">{lead.buyer_name}</p>
-                    <p className="text-[10px] text-gray-400">${lead.offer_price.toLocaleString()} — {PIPELINE_STAGE_LABELS[lead.pipeline_stage]}</p>
+                    <p className="text-[10px] text-gray-400">{PIPELINE_STAGE_LABELS[lead.pipeline_stage]}</p>
                   </div>
                 </div>
               ))}

@@ -65,8 +65,6 @@ export default function BuscarPropiedades() {
   }, [filteredProperties]);
 
   const handleSubmitInterest = async (data: {
-    offer_price: number;
-    payment_method: 'efectivo' | 'credito_bancario' | 'fondos_propios';
     buyer_name: string;
     buyer_phone: string;
     buyer_email: string;
@@ -248,7 +246,7 @@ export default function BuscarPropiedades() {
               onClick={() => setShowLeadForm(true)}
               className="w-full py-3.5 rounded-2xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/25 hover:bg-violet-700 transition-all cursor-pointer"
             >
-              💬 Me Interesa / Contactar Agente
+              📋 Contactar Agente
             </button>
           </div>
         )}

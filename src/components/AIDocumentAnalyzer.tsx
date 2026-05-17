@@ -8,9 +8,10 @@ interface AIDocumentAnalyzerProps {
   context: DocumentContext;
   transactionType: TransactionType;
   onSign: (filename: string) => void;
+  preloadedFilename?: string;
 }
 
-export default function AIDocumentAnalyzer({ isOpen, onClose, context, transactionType, onSign }: AIDocumentAnalyzerProps) {
+export default function AIDocumentAnalyzer({ isOpen, onClose, context, transactionType, onSign, preloadedFilename }: AIDocumentAnalyzerProps) {
   const [phase, setPhase] = useState<'upload' | 'scanning' | 'results'>('upload');
   const [isDragging, setIsDragging] = useState(false);
   const [filename, setFilename] = useState('');
@@ -19,13 +20,34 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
   const [hoveredClause, setHoveredClause] = useState<number | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    setScore(0);
+    setClauses([]);
+    if (preloadedFilename) {
+      setFilename(preloadedFilename);
+      setPhase('scanning');
+      setTimeout(async () => {
+        try {
+          const res = await fetch('/api/ai/analyze-document', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: preloadedFilename, context, transaction_type: transactionType }),
+          });
+          const data = await res.json();
+          setScore(data.score);
+          setClauses(data.clauses);
+          setPhase('results');
+        } catch {
+          setScore(85);
+          setClauses([]);
+          setPhase('results');
+        }
+      }, 2000);
+    } else {
       setPhase('upload');
       setFilename('');
-      setScore(0);
-      setClauses([]);
     }
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileDrop = useCallback(
     async (file: File) => {

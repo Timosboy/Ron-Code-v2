@@ -63,17 +63,18 @@ class LeadCRM2(BaseModel):
     buyer_email: str
     agent_id: str
     stage_crm2: int = 1
-    offer_price: float = 0
-    payment_method: Literal["efectivo", "credito_bancario", "fondos_propios"] = "efectivo"
+    # Stage 2: Interés
+    buyer_showed_interest: bool = False
     reservation_amount: Optional[float] = None
-    compromiso_contract_filename: Optional[str] = None
-    is_agent_signed_crm2_s2: bool = False
-    is_buyer_signed_crm2_s2: bool = False
-    final_contract_filename: Optional[str] = None
-    notary_office_number: Optional[str] = None
-    is_agent_signed_crm2_s3: bool = False
-    is_buyer_signed_crm2_s3: bool = False
-    is_owner_signed_crm2_s3: bool = False
+    agent_confirmed_reservation_payment: bool = False
+    buyer_confirmed_reservation_payment: bool = False
+    # Stage 3: Contrato
+    contract_filename: Optional[str] = None
+    is_agent_signed: bool = False
+    is_buyer_signed: bool = False
+    # Stage 4: Pago
+    agent_confirmed_final_payment: bool = False
+    buyer_confirmed_final_payment: bool = False
 
 # ─── Request Schemas ──────────────────────────────────────────
 
@@ -111,20 +112,18 @@ class CreateLeadRequest(BaseModel):
     buyer_name: str
     buyer_phone: str
     buyer_email: str
-    offer_price: float
-    payment_method: Literal["efectivo", "credito_bancario", "fondos_propios"]
 
 class UpdateLeadStageRequest(BaseModel):
     stage_crm2: Optional[int] = None
+    buyer_showed_interest: Optional[bool] = None
     reservation_amount: Optional[float] = None
-    compromiso_contract_filename: Optional[str] = None
-    is_agent_signed_crm2_s2: Optional[bool] = None
-    is_buyer_signed_crm2_s2: Optional[bool] = None
-    final_contract_filename: Optional[str] = None
-    notary_office_number: Optional[str] = None
-    is_agent_signed_crm2_s3: Optional[bool] = None
-    is_buyer_signed_crm2_s3: Optional[bool] = None
-    is_owner_signed_crm2_s3: Optional[bool] = None
+    agent_confirmed_reservation_payment: Optional[bool] = None
+    buyer_confirmed_reservation_payment: Optional[bool] = None
+    contract_filename: Optional[str] = None
+    is_agent_signed: Optional[bool] = None
+    is_buyer_signed: Optional[bool] = None
+    agent_confirmed_final_payment: Optional[bool] = None
+    buyer_confirmed_final_payment: Optional[bool] = None
 
 class AnalyzeDocumentRequest(BaseModel):
     filename: str
@@ -264,16 +263,16 @@ properties_db: dict[str, Property] = {
 leads_db: dict[str, LeadCRM2] = {
     "l1": LeadCRM2(id="l1", property_id="p1", buyer_id="u1", buyer_name="María López",
                   buyer_phone="+591 71234567", buyer_email="maria@client.com", agent_id="u3",
-                  stage_crm2=1, offer_price=180000, payment_method="credito_bancario"),
+                  stage_crm2=1),
     "l2": LeadCRM2(id="l2", property_id="p1", buyer_id="u2", buyer_name="Carlos Mendoza",
                   buyer_phone="+591 76543210", buyer_email="carlos@client.com", agent_id="u3",
-                  stage_crm2=2, offer_price=182000, payment_method="efectivo"),
+                  stage_crm2=2, buyer_showed_interest=True, reservation_amount=5000),
     "l3": LeadCRM2(id="l3", property_id="p3", buyer_id="u1", buyer_name="María López",
                   buyer_phone="+591 71234567", buyer_email="maria@client.com", agent_id="u4",
-                  stage_crm2=1, offer_price=1100, payment_method="fondos_propios"),
+                  stage_crm2=1),
     "l4": LeadCRM2(id="l4", property_id="p4", buyer_id="u2", buyer_name="Carlos Mendoza",
                   buyer_phone="+591 76543210", buyer_email="carlos@client.com", agent_id="u5",
-                  stage_crm2=1, offer_price=43000, payment_method="efectivo"),
+                  stage_crm2=1),
 }
 marketing_campaigns_db: dict[str, dict] = {}
 social_posts_db: dict[str, dict] = {}
@@ -343,9 +342,6 @@ lead_pipeline_stages_db: dict[str, str] = {
 }
 
 lead_classifications_db: dict[str, LeadClassification] = {}
-leads_db: dict[str, LeadCRM2] = {}
-marketing_campaigns_db: dict[str, dict] = {}
-social_posts_db: dict[str, dict] = {}
 
 
 def calc_status_documents(p: Property) -> Literal["saneado", "advertencia"]:
@@ -478,8 +474,6 @@ def create_lead(req: CreateLeadRequest):
         buyer_email=req.buyer_email,
         agent_id=prop.agent_id,
         stage_crm2=1,
-        offer_price=req.offer_price,
-        payment_method=req.payment_method,
     )
     leads_db[lid] = lead
     return lead.model_dump()
@@ -494,8 +488,22 @@ def update_lead_stage(lead_id: str, req: UpdateLeadStageRequest):
     for key, value in update_data.items():
         setattr(lead, key, value)
 
-    # Auto-archive trigger: when CRM2 reaches stage 4
-    if lead.stage_crm2 == 4:
+    # Auto-advance stage logic
+    if lead.buyer_showed_interest and lead.stage_crm2 == 1:
+        lead.stage_crm2 = 2
+    if (lead.agent_confirmed_reservation_payment and
+            lead.buyer_confirmed_reservation_payment and
+            lead.stage_crm2 == 2):
+        lead.stage_crm2 = 3
+    if lead.is_agent_signed and lead.is_buyer_signed and lead.stage_crm2 == 3:
+        lead.stage_crm2 = 4
+    if (lead.agent_confirmed_final_payment and
+            lead.buyer_confirmed_final_payment and
+            lead.stage_crm2 == 4):
+        lead.stage_crm2 = 5
+
+    # Auto-archive trigger: when CRM2 reaches stage 5
+    if lead.stage_crm2 == 5:
         prop_id = lead.property_id
         if prop_id in properties_db:
             prop = properties_db[prop_id]

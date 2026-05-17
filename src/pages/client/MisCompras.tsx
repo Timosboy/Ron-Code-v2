@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Clock, CheckCircle, ShoppingBag } from 'lucide-react';
+import { Clock, CheckCircle, ShoppingBag, Star, CreditCard } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useLeadStore } from '../../store/leadStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import StepperCRM from '../../components/StepperCRM';
 import AIDocumentAnalyzer from '../../components/AIDocumentAnalyzer';
-import { PAYMENT_LABELS } from '../../types';
 
-const CRM2_STAGE_LABELS = ['Lead Inicial', 'Contrato Compromiso', 'Cierre Legal', 'Finalizado'];
+const CRM2_STAGE_LABELS = ['Contacto', 'Interés', 'Contrato', 'Pago', 'Venta'];
 
 export default function MisCompras() {
   const user = useAuthStore((s) => s.user);
   const { leads, fetchLeads, updateLeadStage } = useLeadStore();
   const { properties, fetchProperties } = usePropertyStore();
   const [showAnalyzer, setShowAnalyzer] = useState(false);
-  const [analyzerContext, setAnalyzerContext] = useState<'compromiso' | 'final'>('compromiso');
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,19 +24,23 @@ export default function MisCompras() {
 
   const getProperty = (propertyId: string) => properties.find((p) => p.id === propertyId);
 
-  const handleSignCompromiso = async (leadId: string, filename: string) => {
-    await updateLeadStage(leadId, {
-      is_buyer_signed_crm2_s2: true,
-      compromiso_contract_filename: filename,
-    });
+  const handleShowInterest = async (leadId: string) => {
+    await updateLeadStage(leadId, { buyer_showed_interest: true });
     fetchLeads({ buyer_id: user!.id });
   };
 
-  const handleSignFinal = async (leadId: string, filename: string) => {
-    await updateLeadStage(leadId, {
-      is_buyer_signed_crm2_s3: true,
-      final_contract_filename: filename,
-    });
+  const handleConfirmReservationPayment = async (leadId: string) => {
+    await updateLeadStage(leadId, { buyer_confirmed_reservation_payment: true });
+    fetchLeads({ buyer_id: user!.id });
+  };
+
+  const handleSignContract = async (leadId: string, filename: string) => {
+    await updateLeadStage(leadId, { is_buyer_signed: true, contract_filename: filename });
+    fetchLeads({ buyer_id: user!.id });
+  };
+
+  const handleConfirmFinalPayment = async (leadId: string) => {
+    await updateLeadStage(leadId, { buyer_confirmed_final_payment: true });
     fetchLeads({ buyer_id: user!.id });
   };
 
@@ -46,13 +48,13 @@ export default function MisCompras() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-black text-gray-900">Mis Compras</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Seguimiento de tus ofertas (CRM 2)</p>
+        <p className="text-sm text-gray-400 mt-0.5">Seguimiento de tus solicitudes (CRM 2)</p>
       </div>
 
       {leads.length === 0 ? (
         <div className="text-center py-20">
           <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-400 font-medium">No tienes ofertas de compra activas</p>
+          <p className="text-gray-400 font-medium">No tienes solicitudes activas</p>
           <p className="text-gray-300 text-sm mt-1">Explora propiedades en la pestaña Buscar</p>
         </div>
       ) : (
@@ -68,12 +70,9 @@ export default function MisCompras() {
                       {prop?.title || 'Propiedad'}
                     </h3>
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-violet-100 text-violet-700">
-                      Oferta: ${lead.offer_price.toLocaleString()}
+                      {prop?.currency === 'USD' ? '$' : 'Bs.'}{prop?.price.toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400">
-                    Método: {PAYMENT_LABELS[lead.payment_method]}
-                  </p>
                   <div className="mt-3">
                     <StepperCRM stages={CRM2_STAGE_LABELS} currentStage={lead.stage_crm2} startIndex={1} />
                   </div>
@@ -81,79 +80,142 @@ export default function MisCompras() {
 
                 {/* Stage content */}
                 <div className="p-5">
+                  {/* Stage 1: Contacto */}
                   {lead.stage_crm2 === 1 && (
-                    <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
-                      <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                      <p className="text-sm text-amber-700 font-medium">
-                        Esperando contacto del Agente...
-                      </p>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-4 rounded-xl bg-sky-50 border border-sky-100">
+                        <Clock className="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-sky-700 font-medium">
+                          Tu información fue enviada al agente. En breve se pondrá en contacto contigo para brindarte más detalles y agendar una visita.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleShowInterest(lead.id)}
+                        className="w-full py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Star className="w-4 h-4" /> Mostrar Interés por esta Propiedad
+                      </button>
                     </div>
                   )}
 
+                  {/* Stage 2: Interés */}
                   {lead.stage_crm2 === 2 && (
                     <div className="space-y-3">
-                      {!lead.is_buyer_signed_crm2_s2 ? (
+                      {lead.reservation_amount ? (
                         <>
-                          <p className="text-sm text-gray-500">
-                            Carga la minuta de reserva/compromiso para análisis de IA.
-                          </p>
-                          <button
-                            onClick={() => {
-                              setActiveLeadId(lead.id);
-                              setAnalyzerContext('compromiso');
-                              setShowAnalyzer(true);
-                            }}
-                            className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer"
-                          >
-                            📄 Cargar Minuta de Compromiso
-                          </button>
+                          <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                            <p className="text-xs font-semibold text-amber-600 mb-1">
+                              Monto de Reserva establecido por el Agente
+                            </p>
+                            <p className="text-2xl font-black text-amber-700">
+                              ${lead.reservation_amount.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-amber-500 mt-2 leading-relaxed">
+                              Realiza el pago de reserva a través de las plataformas externas acordadas con el agente. Una vez completado, confírmalo aquí.
+                            </p>
+                          </div>
+                          {!lead.buyer_confirmed_reservation_payment ? (
+                            <button
+                              onClick={() => handleConfirmReservationPayment(lead.id)}
+                              className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <CheckCircle className="w-4 h-4" /> Confirmar Pago de Reserva Realizado
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                              <CheckCircle className="w-5 h-5 text-emerald-500" />
+                              <p className="text-sm text-emerald-700 font-medium">
+                                Confirmaste el pago ✓ — Esperando confirmación del agente...
+                              </p>
+                            </div>
+                          )}
                         </>
                       ) : (
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                          <CheckCircle className="w-5 h-5 text-emerald-500" />
-                          <p className="text-sm text-emerald-700 font-medium">
-                            Reserva firmada ✓ — Esperando firma del agente y avance a cierre legal.
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
+                          <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                          <p className="text-sm text-amber-700 font-medium">
+                            El agente está revisando tu solicitud y establecerá el monto de reserva en breve...
                           </p>
                         </div>
                       )}
                     </div>
                   )}
 
+                  {/* Stage 3: Contrato */}
                   {lead.stage_crm2 === 3 && (
                     <div className="space-y-3">
-                      {!lead.is_buyer_signed_crm2_s3 ? (
-                        <>
-                          <p className="text-sm text-gray-500">
-                            Carga el contrato definitivo para evaluación de IA y firma final.
+                      {!lead.is_agent_signed ? (
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-violet-50 border border-violet-100">
+                          <Clock className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                          <p className="text-sm text-violet-700 font-medium">
+                            Esperando que el agente cargue y firme el contrato...
                           </p>
+                        </div>
+                      ) : !lead.is_buyer_signed ? (
+                        <>
+                          <div className="p-4 rounded-xl bg-violet-50 border border-violet-100">
+                            <p className="text-sm font-semibold text-violet-700 mb-1">
+                              El agente ha cargado el contrato
+                            </p>
+                            <p className="text-xs text-violet-500">
+                              Revisa el análisis de IA sobre las cláusulas importantes y de riesgo, luego firma digitalmente.
+                            </p>
+                          </div>
                           <button
                             onClick={() => {
                               setActiveLeadId(lead.id);
-                              setAnalyzerContext('final');
                               setShowAnalyzer(true);
                             }}
-                            className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer"
+                            className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
                           >
-                            📄 Cargar Contrato Definitivo
+                            🔍 Revisar Análisis IA y Firmar Contrato
                           </button>
                         </>
                       ) : (
                         <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
                           <CheckCircle className="w-5 h-5 text-emerald-500" />
                           <p className="text-sm text-emerald-700 font-medium">
-                            Contrato firmado ✓ — Esperando firmas restantes.
+                            Contrato firmado ✓ — Avanzando a etapa de pago...
                           </p>
                         </div>
                       )}
                     </div>
                   )}
 
+                  {/* Stage 4: Pago */}
                   {lead.stage_crm2 === 4 && (
+                    <div className="space-y-3">
+                      <div className="p-4 rounded-xl bg-orange-50 border border-orange-100">
+                        <p className="text-sm font-semibold text-orange-700 mb-1">Pago Final</p>
+                        <p className="text-xs text-orange-600 leading-relaxed">
+                          Realiza el pago final a través de las plataformas externas acordadas con el agente. Una vez completado, confírmalo aquí.
+                        </p>
+                      </div>
+                      {!lead.buyer_confirmed_final_payment ? (
+                        <button
+                          onClick={() => handleConfirmFinalPayment(lead.id)}
+                          className="w-full py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <CreditCard className="w-4 h-4" /> Confirmar Pago Final Realizado
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                          <CheckCircle className="w-5 h-5 text-emerald-500" />
+                          <p className="text-sm text-emerald-700 font-medium">
+                            Confirmaste el pago ✓ — Esperando confirmación del agente...
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Stage 5: Venta */}
+                  {lead.stage_crm2 === 5 && (
                     <div className="p-6 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-100 text-center animate-fadeIn">
                       <div className="text-5xl mb-3 animate-bounce">🎉</div>
-                      <h4 className="text-lg font-black text-violet-700 mb-1">¡Felicidades!</h4>
+                      <h4 className="text-lg font-black text-violet-700 mb-1">¡Transacción Completada!</h4>
                       <p className="text-sm text-violet-600">
-                        Tu transacción ha sido completada con éxito. ¡Disfruta tu nueva propiedad!
+                        La compra ha sido realizada exitosamente. ¡Felicidades por tu nueva propiedad!
                       </p>
                     </div>
                   )}
@@ -167,19 +229,19 @@ export default function MisCompras() {
       <AIDocumentAnalyzer
         isOpen={showAnalyzer}
         onClose={() => setShowAnalyzer(false)}
-        context={analyzerContext}
+        context="final"
         transactionType={
           activeLeadId
             ? getProperty(leads.find((l) => l.id === activeLeadId)?.property_id || '')?.type || 'venta'
             : 'venta'
         }
+        preloadedFilename={
+          activeLeadId
+            ? leads.find((l) => l.id === activeLeadId)?.contract_filename ?? undefined
+            : undefined
+        }
         onSign={(filename) => {
-          if (!activeLeadId) return;
-          if (analyzerContext === 'compromiso') {
-            handleSignCompromiso(activeLeadId, filename);
-          } else {
-            handleSignFinal(activeLeadId, filename);
-          }
+          if (activeLeadId) handleSignContract(activeLeadId, filename);
         }}
       />
     </div>
