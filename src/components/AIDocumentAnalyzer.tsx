@@ -32,7 +32,7 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
     setTextContent('');
     setAnalysisData(null);
     setActiveTab('analysis');
-
+    
     if (preloadedAnalysisData) {
       setFilename(preloadedFilename || 'Contrato.pdf');
       setScore(preloadedAnalysisData.score || 85);
@@ -49,9 +49,9 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filename: preloadedFilename, context, transaction_type: transactionType }),
           });
-
+          
           if (!res.ok) throw new Error('Network error or 422');
-
+          
           const data = await res.json();
           setScore(data.score || 85);
           setClauses(data.clauses || []);
@@ -87,9 +87,9 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
           method: 'POST',
           body: formData,
         });
-
+        
         if (!res.ok) throw new Error('Failed to analyze document');
-
+        
         const data = await res.json();
         setScore(data.score);
         setClauses(data.clauses);
@@ -235,8 +235,13 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
                       <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
                         <circle cx="60" cy="60" r="50" fill="none" stroke="#f3f4f6" strokeWidth="10" />
                         <circle
-                          cx="60" cy="60" r="50" fill="none"
-                          stroke={scoreTrackColor} strokeWidth="10" strokeLinecap="round"
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke={scoreTrackColor}
+                          strokeWidth="10"
+                          strokeLinecap="round"
                           strokeDasharray={`${(score / 100) * 314} 314`}
                           className="transition-all duration-1000 ease-out"
                         />
@@ -258,7 +263,7 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
                     </div>
                   </div>
 
-                  {/* Clauses */}
+                  {/* Contract Viewer */}
                   <div className="border border-gray-200 rounded-2xl overflow-hidden">
                     <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-400" />
@@ -272,43 +277,46 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
                           onMouseEnter={() => setHoveredClause(i)}
                           onMouseLeave={() => setHoveredClause(null)}
                         >
-                          <div className={`p-3 rounded-xl transition-all cursor-help ${
-                            clause.type === 'dangerous'
-                              ? 'bg-rose-50 border border-rose-200 text-gray-700'
-                              : 'bg-emerald-50 border border-emerald-200 text-gray-700'
-                          }`}>
-                            <div className="flex items-start gap-2 mb-1">
-                              {clause.type === 'dangerous' ? (
-                                <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
-                              ) : (
-                                <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                              )}
-                              <span className={`text-[10px] font-bold uppercase tracking-wide ${
-                                clause.type === 'dangerous' ? 'text-rose-600' : 'text-emerald-600'
-                              }`}>
-                                {clause.type === 'dangerous' ? 'Cláusula de Riesgo' : 'Cláusula Segura'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-600 leading-relaxed">{clause.text}</p>
-                          </div>
-
-                          {hoveredClause === i && (
-                            <div className={`absolute left-4 right-4 z-30 p-3 rounded-xl shadow-xl text-xs font-medium leading-relaxed animate-fadeIn ${
+                          <div
+                            className={`p-3 rounded-xl transition-all cursor-help ${
                               clause.type === 'dangerous'
-                                ? 'bg-rose-600 text-white -bottom-2 translate-y-full'
-                                : 'bg-emerald-600 text-white -bottom-2 translate-y-full'
-                            }`}>
-                              <div className={`absolute -top-1.5 left-6 w-3 h-3 rotate-45 ${
-                                clause.type === 'dangerous' ? 'bg-rose-600' : 'bg-emerald-600'
-                              }`} />
-                              {clause.tooltip}
-                            </div>
+                                ? 'bg-rose-50 border border-rose-200 text-gray-700'
+                            : 'bg-emerald-50 border border-emerald-200 text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 mb-1">
+                          {clause.type === 'dangerous' ? (
+                            <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                           )}
+                          <span className={`text-[10px] font-bold uppercase tracking-wide ${
+                            clause.type === 'dangerous' ? 'text-rose-600' : 'text-emerald-600'
+                          }`}>
+                            {clause.type === 'dangerous' ? 'Cláusula de Riesgo' : 'Cláusula Segura'}
+                          </span>
                         </div>
-                      ))}
+                        <p className="text-xs text-gray-600 leading-relaxed">{clause.text}</p>
+                      </div>
+
+                      {/* Tooltip */}
+                      {hoveredClause === i && (
+                        <div className={`absolute left-4 right-4 z-30 p-3 rounded-xl shadow-xl text-xs font-medium leading-relaxed animate-fadeIn ${
+                          clause.type === 'dangerous'
+                            ? 'bg-rose-600 text-white -bottom-2 translate-y-full'
+                            : 'bg-emerald-600 text-white -bottom-2 translate-y-full'
+                        }`}>
+                          <div className={`absolute -top-1.5 left-6 w-3 h-3 rotate-45 ${
+                            clause.type === 'dangerous' ? 'bg-rose-600' : 'bg-emerald-600'
+                          }`} />
+                          {clause.tooltip}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </>
+                  ))}
+                </div>
+              </div>
+              </>
               ) : (
                 <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
                   <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
@@ -321,7 +329,7 @@ export default function AIDocumentAnalyzer({ isOpen, onClose, context, transacti
                 </div>
               )}
 
-              {/* Action Button */}
+              {/* Sign Button */}
               <button
                 onClick={() => {
                   onSign(filename, analysisData);
