@@ -14,6 +14,15 @@ import pypdf
 import docx
 from dotenv import load_dotenv
 
+from r2_storage import (
+    generate_presigned_put_url,
+    is_r2_configured,
+    is_valid_public_panorama_url,
+    normalize_content_type,
+    panorama_object_key,
+    build_public_url,
+)
+
 # Load .env file if present
 load_dotenv()
 
@@ -67,6 +76,9 @@ class Property(BaseModel):
     is_agent_signed_crm1: bool = False
     is_client_signed_crm1: bool = False
     published_to_map: bool = False
+    panorama_url: Optional[str] = None
+    panorama_label: Optional[str] = None
+    panorama_uploaded_at: Optional[str] = None
 
 class LeadCRM2(BaseModel):
     id: str
@@ -236,6 +248,15 @@ class TrackInteractionRequest(BaseModel):
 class UpdatePipelineStageRequest(BaseModel):
     stage: Literal["CONTACT", "VISIT", "INTEREST", "COMMITMENT_SIGNATURE", "PAYMENT", "COMPLETED"]
 
+class PanoramaUploadUrlRequest(BaseModel):
+    agent_id: str
+    content_type: str = "image/jpeg"
+
+class UpdatePanoramaRequest(BaseModel):
+    agent_id: str
+    panorama_url: str
+    panorama_label: Optional[str] = None
+
 # ─── In-Memory Database ──────────────────────────────────────
 
 users_db: dict[str, User] = {
@@ -256,6 +277,9 @@ properties_db: dict[str, Property] = {
         price=185000, currency="USD", type="venta",
         has_titulo=True, has_folio=True, has_impuestos=True, status_documents="saneado",
         stage_crm1=4, is_agent_signed_crm1=True, is_client_signed_crm1=True, published_to_map=True,
+        panorama_url="https://pannellum.org/images/alma.jpg",
+        panorama_label="Sala principal (demo)",
+        panorama_uploaded_at="2026-01-15T12:00:00",
     ),
     "p2": Property(
         id="p2", owner_id="u1", agent_id=None, title="Casa Sopocachi Colonial",
@@ -471,6 +495,62 @@ def update_property_stage(property_id: str, req: UpdatePropertyStageRequest):
     for key, value in update_data.items():
         setattr(prop, key, value)
     prop.status_documents = calc_status_documents(prop)
+    properties_db[property_id] = prop
+    return prop.model_dump()
+
+
+def _require_property_agent(property_id: str, agent_id: str) -> Property:
+    if property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    prop = properties_db[property_id]
+    if not agent_id or prop.agent_id != agent_id:
+        raise HTTPException(status_code=403, detail="No autorizado para esta propiedad")
+    return prop
+
+
+@app.post("/api/properties/{property_id}/panorama/upload-url")
+def panorama_upload_url(property_id: str, req: PanoramaUploadUrlRequest):
+    _require_property_agent(property_id, req.agent_id)
+    if not is_r2_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Almacenamiento R2 no configurado. Define las variables R2_* en el servidor.",
+        )
+    content_type = normalize_content_type(req.content_type)
+    if content_type not in ("image/jpeg",):
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes JPEG")
+    try:
+        result = generate_presigned_put_url(property_id, content_type)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al generar URL de subida: {e}")
+    return result
+
+
+@app.put("/api/properties/{property_id}/panorama")
+def update_property_panorama(property_id: str, req: UpdatePanoramaRequest):
+    prop = _require_property_agent(property_id, req.agent_id)
+    if is_r2_configured():
+        if not is_valid_public_panorama_url(req.panorama_url):
+            expected_key = panorama_object_key(property_id)
+            expected_url = build_public_url(expected_key)
+            if req.panorama_url != expected_url:
+                raise HTTPException(status_code=400, detail="URL de panorámica no válida para este bucket")
+    elif not req.panorama_url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="URL de panorámica inválida")
+
+    prop.panorama_url = req.panorama_url
+    prop.panorama_label = req.panorama_label or "Tour 360"
+    prop.panorama_uploaded_at = datetime.utcnow().isoformat()
+    properties_db[property_id] = prop
+    return prop.model_dump()
+
+
+@app.delete("/api/properties/{property_id}/panorama")
+def delete_property_panorama(property_id: str, agent_id: str = ""):
+    prop = _require_property_agent(property_id, agent_id)
+    prop.panorama_url = None
+    prop.panorama_label = None
+    prop.panorama_uploaded_at = None
     properties_db[property_id] = prop
     return prop.model_dump()
 

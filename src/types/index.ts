@@ -52,8 +52,23 @@ export interface Property {
   is_agent_signed_crm1: boolean;
   is_client_signed_crm1: boolean;
   published_to_map: boolean;
+  panorama_url?: string | null;
+  panorama_label?: string | null;
+  panorama_uploaded_at?: string | null;
   lat?: number;
   lng?: number;
+}
+
+export interface PanoramaUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+}
+
+export interface UpdatePanoramaRequest {
+  agent_id: string;
+  panorama_url: string;
+  panorama_label?: string;
 }
 
 export interface LeadCRM2 {
