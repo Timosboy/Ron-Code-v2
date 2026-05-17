@@ -3,6 +3,7 @@ import { Globe, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import { TRANSACTION_LABELS } from '../../types';
+import PanoramaUpload from '../../components/PanoramaUpload';
 
 export default function PublicarOferta() {
   const user = useAuthStore((s) => s.user);
@@ -37,48 +38,58 @@ export default function PublicarOferta() {
           {publishableProperties.map((prop) => (
             <div
               key={prop.id}
-              className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between hover:shadow-md transition-all"
+              className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-all"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-100 to-purple-50 flex items-center justify-center flex-shrink-0">
-                  <span className="text-2xl">🏠</span>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900">{prop.title}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-400">
-                      {prop.currency === 'USD' ? '$' : 'Bs.'}{prop.price.toLocaleString()}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 text-[10px] font-semibold">
-                      {TRANSACTION_LABELS[prop.type]}
-                    </span>
-                    {prop.status_documents === 'saneado' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 text-[10px] font-semibold">
-                        <div className="w-1 h-1 rounded-full bg-emerald-500" /> Saneado
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-100 to-purple-50 flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl">🏠</span>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-gray-900 truncate">{prop.title}</h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-400">
+                        {prop.currency === 'USD' ? '$' : 'Bs.'}{prop.price.toLocaleString()}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 text-[10px] font-semibold">
-                        <div className="w-1 h-1 rounded-full bg-rose-500" /> Alerta
+                      <span className="px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 text-[10px] font-semibold">
+                        {TRANSACTION_LABELS[prop.type]}
                       </span>
-                    )}
+                      {prop.status_documents === 'saneado' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 text-[10px] font-semibold">
+                          <div className="w-1 h-1 rounded-full bg-emerald-500" /> Saneado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-700 text-[10px] font-semibold">
+                          <div className="w-1 h-1 rounded-full bg-rose-500" />
+                          Alerta
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => handleTogglePublish(prop.id, prop.published_to_map)}
+                  className="flex items-center gap-2 cursor-pointer flex-shrink-0"
+                >
+                  <span className={`text-xs font-semibold ${prop.published_to_map ? 'text-emerald-600' : 'text-gray-400'}`}>
+                    {prop.published_to_map ? 'Publicada' : 'Sin publicar'}
+                  </span>
+                  {prop.published_to_map ? (
+                    <ToggleRight className="w-10 h-10 text-emerald-500" />
+                  ) : (
+                    <ToggleLeft className="w-10 h-10 text-gray-300" />
+                  )}
+                </button>
               </div>
 
-              {/* iOS Toggle */}
-              <button
-                onClick={() => handleTogglePublish(prop.id, prop.published_to_map)}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <span className={`text-xs font-semibold ${prop.published_to_map ? 'text-emerald-600' : 'text-gray-400'}`}>
-                  {prop.published_to_map ? 'Publicada' : 'Sin publicar'}
-                </span>
-                {prop.published_to_map ? (
-                  <ToggleRight className="w-10 h-10 text-emerald-500" />
-                ) : (
-                  <ToggleLeft className="w-10 h-10 text-gray-300" />
-                )}
-              </button>
+              {user && (
+                <PanoramaUpload
+                  property={prop}
+                  agentId={user.id}
+                  onUpdated={() => fetchProperties({ agent_id: user.id })}
+                />
+              )}
             </div>
           ))}
         </div>

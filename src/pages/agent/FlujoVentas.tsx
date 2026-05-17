@@ -249,6 +249,16 @@ export default function FlujoVentas() {
         >
           <ShoppingCart className="w-3.5 h-3.5" /> Pipeline Ventas
         </button>
+        <button
+          onClick={() => setSubTab('intelligence')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            subTab === 'intelligence'
+              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-600/20'
+              : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <Brain className="w-3.5 h-3.5" /> CRM Inteligente
+        </button>
       </div>
 
       {subTab === 'pipeline' && (

@@ -8,6 +8,7 @@ import { TRANSACTION_LABELS } from '../../types';
 import type { Property, TransactionType } from '../../types';
 import BottomSheet from '../../components/BottomSheet';
 import LeadFormModal from '../../components/LeadFormModal';
+import PanoramaViewer from '../../components/PanoramaViewer';
 
 const COCHABAMBA_CENTER = { lat: -17.3935, lng: -66.1570 };
 const MAP_OPTIONS = {
@@ -222,6 +223,12 @@ export default function BuscarPropiedades() {
       >
         {selectedProperty && (
           <div className="space-y-4">
+            {selectedProperty.panorama_url && (
+              <PanoramaViewer
+                panoramaUrl={selectedProperty.panorama_url}
+                label={selectedProperty.panorama_label || 'Tour 360'}
+              />
+            )}
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 rounded-lg bg-violet-100 text-violet-700 text-xs font-semibold">
                 {TRANSACTION_LABELS[selectedProperty.type]}
