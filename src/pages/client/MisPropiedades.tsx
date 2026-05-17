@@ -140,9 +140,10 @@ export default function MisPropiedades() {
       {/* FAB */}
       <button
         onClick={() => setShowForm(true)}
-        className="fixed bottom-24 right-6 w-14 h-14 rounded-2xl bg-violet-600 text-white shadow-xl shadow-violet-600/30 hover:bg-violet-700 hover:scale-105 transition-all flex items-center justify-center z-30 cursor-pointer"
+        className="fixed bottom-24 right-6 px-6 h-14 rounded-full bg-violet-600 text-white shadow-xl shadow-violet-600/30 hover:bg-violet-700 hover:scale-105 transition-all flex items-center justify-center gap-2 z-30 cursor-pointer font-bold"
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-5 h-5" />
+        Agregar propiedad
       </button>
 
       {/* Modals */}
