@@ -5,7 +5,7 @@ import { usePropertyStore } from '../../store/propertyStore';
 import StepperCRM from '../../components/StepperCRM';
 import AutoContractGenerator from '../../components/AutoContractGenerator';
 
-const CRM1_STAGE_LABELS = ['Oferta Recibida', 'Negociación', 'Contrato Corretaje', 'En Mercado', 'Concluida'];
+const CRM1_STAGE_LABELS = ['Solicitud Recepcionada', 'Acuerdo Comisión', 'Firma Contrato Prestación de Servicios', 'En Mercado', 'Cierre'];
 
 export default function MisVentas() {
   const user = useAuthStore((s) => s.user);
@@ -41,8 +41,8 @@ export default function MisVentas() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">Mis Ventas</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Seguimiento del proceso de venta (CRM 1)</p>
+        <h1 className="text-2xl font-black text-gray-900">Seguimiento</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Sigue el estado y avance de la oferta de tus propiedades</p>
       </div>
 
       {activeProperties.length === 0 ? (
@@ -130,7 +130,7 @@ export default function MisVentas() {
                           }}
                           className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" /></svg>
                           Generar Contrato Automáticamente
                         </button>
                       </>

@@ -87,7 +87,7 @@ export default function BuscarPropiedades() {
   }
 
   return (
-    <div className="absolute inset-0 w-full h-[100dvh] pb-16 overflow-hidden bg-gray-100">
+    <div className="absolute inset-0 w-full h-full pb-16 overflow-hidden bg-gray-100">
       {/* Fullscreen Map */}
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
