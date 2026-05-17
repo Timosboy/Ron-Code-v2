@@ -30,6 +30,11 @@ export default function FlujoVentas() {
     if (user) {
       fetchLeads({ agent_id: user.id });
       fetchProperties({ agent_id: user.id });
+      const interval = setInterval(() => {
+        fetchLeads({ agent_id: user.id });
+        fetchProperties({ agent_id: user.id });
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [user, fetchLeads, fetchProperties]);
 

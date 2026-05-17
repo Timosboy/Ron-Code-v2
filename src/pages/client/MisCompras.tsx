@@ -19,6 +19,11 @@ export default function MisCompras() {
     if (user) {
       fetchLeads({ buyer_id: user.id });
       fetchProperties();
+      const interval = setInterval(() => {
+        fetchLeads({ buyer_id: user.id });
+        fetchProperties();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [user, fetchLeads, fetchProperties]);
 

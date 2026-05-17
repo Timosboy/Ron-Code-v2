@@ -41,6 +41,10 @@ export default function BuscarPropiedades() {
 
   useEffect(() => {
     fetchProperties({ published_to_map: 'true' });
+    const interval = setInterval(() => {
+      fetchProperties({ published_to_map: 'true' });
+    }, 5000);
+    return () => clearInterval(interval);
   }, [fetchProperties]);
 
   const filteredProperties = properties.filter((p) => {

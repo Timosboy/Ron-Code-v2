@@ -12,7 +12,13 @@ export default function PropietarioEstadisticas() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) fetchProperties({ owner_id: user.id });
+    if (user) {
+      fetchProperties({ owner_id: user.id });
+      const interval = setInterval(() => {
+        fetchProperties({ owner_id: user.id });
+      }, 5000);
+      return () => clearInterval(interval);
+    }
   }, [user, fetchProperties]);
 
   const publishedProperties = properties.filter((p) => p.stage_crm1 >= 4);

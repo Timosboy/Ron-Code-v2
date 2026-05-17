@@ -14,7 +14,13 @@ export default function MisVentas() {
   const [analyzingPropertyId, setAnalyzingPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) fetchProperties({ owner_id: user.id });
+    if (user) {
+      fetchProperties({ owner_id: user.id });
+      const interval = setInterval(() => {
+        fetchProperties({ owner_id: user.id });
+      }, 5000);
+      return () => clearInterval(interval);
+    }
   }, [user, fetchProperties]);
 
   const activeProperties = properties.filter((p) => p.stage_crm1 >= 1);

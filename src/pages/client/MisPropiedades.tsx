@@ -18,6 +18,11 @@ export default function MisPropiedades() {
     if (user) {
       fetchProperties({ owner_id: user.id });
       fetchAgents();
+      const interval = setInterval(() => {
+        fetchProperties({ owner_id: user.id });
+        fetchAgents();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [user, fetchProperties, fetchAgents]);
 

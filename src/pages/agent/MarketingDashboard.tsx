@@ -22,7 +22,13 @@ export default function MarketingDashboard() {
   const [showScript, setShowScript] = useState(false);
 
   useEffect(() => {
-    if (user) fetchProperties({ agent_id: user.id });
+    if (user) {
+      fetchProperties({ agent_id: user.id });
+      const interval = setInterval(() => {
+        fetchProperties({ agent_id: user.id });
+      }, 5000);
+      return () => clearInterval(interval);
+    }
   }, [user, fetchProperties]);
 
   useEffect(() => {
