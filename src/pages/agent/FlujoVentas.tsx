@@ -233,15 +233,14 @@ export default function FlujoVentas() {
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setSubTab('pipeline')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-            subTab === 'pipeline'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${subTab === 'pipeline'
               ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
               : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
-          }`}
+            }`}
         >
           <ShoppingCart className="w-3.5 h-3.5" /> Pipeline Ventas
         </button>
-        <button
+        {/* <button
           onClick={() => setSubTab('intelligence')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             subTab === 'intelligence'
@@ -250,7 +249,7 @@ export default function FlujoVentas() {
           }`}
         >
           <Brain className="w-3.5 h-3.5" /> CRM Inteligente
-        </button>
+        </button> */}
       </div>
 
       {subTab === 'pipeline' && (
