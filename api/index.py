@@ -343,6 +343,9 @@ lead_pipeline_stages_db: dict[str, str] = {
 }
 
 lead_classifications_db: dict[str, LeadClassification] = {}
+leads_db: dict[str, LeadCRM2] = {}
+marketing_campaigns_db: dict[str, dict] = {}
+social_posts_db: dict[str, dict] = {}
 
 
 def calc_status_documents(p: Property) -> Literal["saneado", "advertencia"]:
