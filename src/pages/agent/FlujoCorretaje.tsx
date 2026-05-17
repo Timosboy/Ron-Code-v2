@@ -18,10 +18,11 @@ export default function FlujoCorretaje() {
   const { properties, fetchProperties, updateStage } = usePropertyStore();
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [analyzingPropertyId, setAnalyzingPropertyId] = useState<string | null>(null);
+  const [isGeneratingContract, setIsGeneratingContract] = useState(false);
 
   // Commission form state per property
   const [commissionForms, setCommissionForms] = useState<
-    Record<string, { type: CommissionType; amount: string }>
+    Record<string, { type: CommissionType; amount: string; exclusivity: string }>
   >({});
 
   useEffect(() => {
@@ -59,12 +60,42 @@ export default function FlujoCorretaje() {
       is_agent_signed_crm1: true,
       corretaje_contract_filename: filename,
     });
-    // Check if both parties signed → advance to stage 4
     const prop = properties.find((p) => p.id === propertyId);
     if (prop?.is_client_signed_crm1) {
       await updateStage(propertyId, { stage_crm1: 4 });
     }
     fetchProperties({ agent_id: user!.id });
+  };
+
+  const handleSendContract = async (propertyId: string) => {
+    const form = commissionForms[propertyId];
+    if (!form || !form.amount || !form.exclusivity) return;
+    await updateStage(propertyId, {
+      stage_crm1: 3,
+      commission_type: form.type,
+      proposed_commission: parseFloat(form.amount),
+      corretaje_exclusivity_months: parseInt(form.exclusivity, 10),
+      corretaje_status: 'pending'
+    });
+    fetchProperties({ agent_id: user!.id });
+  };
+
+  const generateAndShowContract = async (propertyId: string, ownerName: string) => {
+    setIsGeneratingContract(true);
+    setAnalyzingPropertyId(propertyId);
+    try {
+      await fetch('/api/ai/generate-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: propertyId, owner_name: ownerName }),
+      });
+      await fetchProperties({ agent_id: user!.id });
+    } catch (e) {
+      console.error('Error generating contract:', e);
+    } finally {
+      setIsGeneratingContract(false);
+      setShowAnalyzer(true);
+    }
   };
 
   const agentProperties = properties.filter((p) => p.stage_crm1 >= 1 && p.stage_crm1 <= 4);
@@ -229,8 +260,13 @@ export default function FlujoCorretaje() {
         onClose={() => setShowAnalyzer(false)}
         property={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId) || null : null}
         ownerName="Propietario (CRM)"
-        onSign={(filename) => {
-          if (analyzingPropertyId) handleSignContract(analyzingPropertyId, filename);
+        isAgentView={true}
+        aiContent={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId)?.corretaje_contract_content : null}
+        onAccept={(filename) => {
+          if (analyzingPropertyId) {
+            handleSignContract(analyzingPropertyId, filename);
+            handleSendContract(analyzingPropertyId);
+          }
         }}
       />
     </div>

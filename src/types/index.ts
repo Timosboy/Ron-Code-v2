@@ -39,7 +39,16 @@ export interface Property {
   commission_type: CommissionType | null;
   proposed_commission: number | null;
   client_accepted_commission: boolean;
+  corretaje_status: 'pending' | 'accepted' | 'counteroffer' | null;
+  corretaje_exclusivity_months: number | null;
+  corretaje_counteroffer_data: {
+    commission_type?: CommissionType;
+    amount?: number;
+    exclusivity_months?: number;
+    message?: string;
+  } | null;
   corretaje_contract_filename: string | null;
+  corretaje_contract_content: string | null;
   is_agent_signed_crm1: boolean;
   is_client_signed_crm1: boolean;
   published_to_map: boolean;
@@ -63,6 +72,7 @@ export interface LeadCRM2 {
   buyer_confirmed_reservation_payment: boolean;
   // Stage 3: Contrato
   contract_filename: string | null;
+  contract_analysis_data?: any;
   is_agent_signed: boolean;
   is_buyer_signed: boolean;
   // Stage 4: Pago
@@ -98,7 +108,16 @@ export interface UpdatePropertyStageRequest {
   commission_type?: CommissionType;
   proposed_commission?: number;
   client_accepted_commission?: boolean;
+  corretaje_status?: 'pending' | 'accepted' | 'counteroffer' | null;
+  corretaje_exclusivity_months?: number | null;
+  corretaje_counteroffer_data?: {
+    commission_type?: CommissionType;
+    amount?: number;
+    exclusivity_months?: number;
+    message?: string;
+  } | null;
   corretaje_contract_filename?: string;
+  corretaje_contract_content?: string;
   is_agent_signed_crm1?: boolean;
   is_client_signed_crm1?: boolean;
   published_to_map?: boolean;
@@ -119,6 +138,7 @@ export interface UpdateLeadStageRequest {
   agent_confirmed_reservation_payment?: boolean;
   buyer_confirmed_reservation_payment?: boolean;
   contract_filename?: string;
+  contract_analysis_data?: any;
   is_agent_signed?: boolean;
   is_buyer_signed?: boolean;
   agent_confirmed_final_payment?: boolean;

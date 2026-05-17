@@ -245,6 +245,11 @@ export default function MisCompras() {
             ? leads.find((l) => l.id === activeLeadId)?.contract_filename ?? undefined
             : undefined
         }
+        preloadedAnalysisData={
+          activeLeadId
+            ? leads.find((l) => l.id === activeLeadId)?.contract_analysis_data
+            : undefined
+        }
         onSign={(filename) => {
           if (activeLeadId) handleSignContract(activeLeadId, filename);
         }}
