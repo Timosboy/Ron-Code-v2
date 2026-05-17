@@ -1,17 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, FileText, Send } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import StepperCRM from '../../components/StepperCRM';
 import AutoContractGenerator from '../../components/AutoContractGenerator';
+import type { CommissionType } from '../../types';
 
-const CRM1_STAGE_LABELS = ['Solicitud Recepcionada', 'Acuerdo Comisión', 'Firma Contrato Prestación de Servicios', 'En Mercado', 'Cierre'];
+const CRM1_STAGE_LABELS = ['Oferta Recibida', 'Negociación', 'Revisión Contrato', 'En Mercado', 'Concluida'];
 
 export default function MisVentas() {
   const user = useAuthStore((s) => s.user);
   const { properties, fetchProperties, updateStage } = usePropertyStore();
+
+
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [analyzingPropertyId, setAnalyzingPropertyId] = useState<string | null>(null);
+
+  const handleSignContract = async (propertyId: string, filename: string) => {
+    await updateStage(propertyId, {
+      is_client_signed_crm1: true,
+      corretaje_contract_filename: filename,
+    });
+    fetchProperties({ owner_id: user!.id });
+  };
 
   useEffect(() => {
     if (user) {
@@ -25,21 +36,11 @@ export default function MisVentas() {
 
   const activeProperties = properties.filter((p) => p.stage_crm1 >= 1);
 
-  const handleAcceptCommission = async (propertyId: string) => {
-    await updateStage(propertyId, { client_accepted_commission: true, stage_crm1: 3 });
-    fetchProperties({ owner_id: user!.id });
-  };
-
-  const handleRejectCommission = async (propertyId: string) => {
-    await updateStage(propertyId, { stage_crm1: 1 });
-    fetchProperties({ owner_id: user!.id });
-  };
-
-  const handleSignContract = async (propertyId: string, filename: string) => {
-    await updateStage(propertyId, {
-      is_client_signed_crm1: true,
-      corretaje_contract_filename: filename,
-      stage_crm1: 4,
+  const handleAcceptContract = async (propertyId: string) => {
+    await updateStage(propertyId, { 
+      client_accepted_commission: true, 
+      corretaje_status: 'accepted',
+      stage_crm1: 4 
     });
     fetchProperties({ owner_id: user!.id });
   };
@@ -47,8 +48,8 @@ export default function MisVentas() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">Seguimiento</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Sigue el estado y avance de la oferta de tus propiedades</p>
+        <h1 className="text-2xl font-black text-gray-900">Mis Ventas</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Seguimiento del proceso de venta (CRM 1)</p>
       </div>
 
       {activeProperties.length === 0 ? (
@@ -91,34 +92,11 @@ export default function MisVentas() {
                 )}
 
                 {prop.stage_crm1 === 2 && (
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-xl bg-violet-50 border border-violet-100">
-                      <p className="text-xs font-semibold text-violet-500 mb-1">Comisión Propuesta por el Agente</p>
-                      <p className="text-2xl font-black text-violet-700">
-                        {prop.commission_type === 'porcentaje'
-                          ? `${prop.proposed_commission}%`
-                          : `$${prop.proposed_commission?.toLocaleString()}`}
-                        <span className="text-sm font-medium text-violet-400 ml-2">
-                          ({prop.commission_type === 'porcentaje' ? 'Porcentaje' : 'Monto Fijo'})
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleAcceptCommission(prop.id)}
-                        className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Aceptar Comisión
-                      </button>
-                      <button
-                        onClick={() => handleRejectCommission(prop.id)}
-                        className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold text-sm hover:bg-gray-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        Rechazar
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
+                    <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                    <p className="text-sm text-amber-700 font-medium">
+                      El agente está preparando los términos del contrato de corretaje...
+                    </p>
                   </div>
                 )}
 
@@ -127,7 +105,7 @@ export default function MisVentas() {
                     {!prop.is_client_signed_crm1 ? (
                       <>
                         <p className="text-sm text-gray-500">
-                          Genera automáticamente el contrato de corretaje con las condiciones acordadas para firmarlo digitalmente.
+                          El agente ha preparado tu contrato de corretaje con las condiciones acordadas. Revísalo y acepta o contráoferta.
                         </p>
                         <button
                           onClick={() => {
@@ -136,8 +114,8 @@ export default function MisVentas() {
                           }}
                           className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" /></svg>
-                          Generar Contrato Automáticamente
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                          Revisar Contrato de Corretaje
                         </button>
                       </>
                     ) : (
@@ -183,11 +161,12 @@ export default function MisVentas() {
         onAccept={(filename) => {
           if (analyzingPropertyId) {
             handleSignContract(analyzingPropertyId, filename);
+            handleAcceptContract(analyzingPropertyId);
           }
         }}
         onCounteroffer={async (data) => {
           if (analyzingPropertyId) {
-            await updateStage(analyzingPropertyId, {
+            await updateStage(analyzingPropertyId, { 
               corretaje_status: 'counteroffer',
               corretaje_counteroffer_data: {
                 commission_type: data.type,
@@ -200,7 +179,9 @@ export default function MisVentas() {
             setShowAnalyzer(false);
           }
         }}
-        onReject={() => setShowAnalyzer(false)}
+        onReject={() => {
+          setShowAnalyzer(false);
+        }}
       />
     </div>
   );
