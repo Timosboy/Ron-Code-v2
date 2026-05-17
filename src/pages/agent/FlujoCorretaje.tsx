@@ -3,7 +3,7 @@ import { CheckCircle, XCircle, Send, Clock, PenTool } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import KanbanBoard from '../../components/KanbanBoard';
-import AIDocumentAnalyzer from '../../components/AIDocumentAnalyzer';
+import AutoContractGenerator from '../../components/AutoContractGenerator';
 import type { CommissionType } from '../../types';
 
 const COLUMNS = [
@@ -177,9 +177,9 @@ export default function FlujoCorretaje() {
                   setAnalyzingPropertyId(prop.id);
                   setShowAnalyzer(true);
                 }}
-                className="w-full py-2 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                className="w-full py-2 rounded-lg bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-700 transition-all flex items-center justify-center gap-1 cursor-pointer"
               >
-                <PenTool className="w-3.5 h-3.5" /> Cargar y Firmar Contrato
+                <PenTool className="w-3.5 h-3.5" /> Generar Contrato Automáticamente
               </button>
             ) : (
               <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100">
@@ -218,15 +218,11 @@ export default function FlujoCorretaje() {
 
       <KanbanBoard columns={COLUMNS} renderCards={renderCards} />
 
-      <AIDocumentAnalyzer
+      <AutoContractGenerator
         isOpen={showAnalyzer}
         onClose={() => setShowAnalyzer(false)}
-        context="corretaje"
-        transactionType={
-          analyzingPropertyId
-            ? properties.find((p) => p.id === analyzingPropertyId)?.type || 'venta'
-            : 'venta'
-        }
+        property={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId) || null : null}
+        ownerName="Propietario (CRM)"
         onSign={(filename) => {
           if (analyzingPropertyId) handleSignContract(analyzingPropertyId, filename);
         }}

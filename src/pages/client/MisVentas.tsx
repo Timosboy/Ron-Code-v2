@@ -3,7 +3,7 @@ import { Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import StepperCRM from '../../components/StepperCRM';
-import AIDocumentAnalyzer from '../../components/AIDocumentAnalyzer';
+import AutoContractGenerator from '../../components/AutoContractGenerator';
 
 const CRM1_STAGE_LABELS = ['Oferta Recibida', 'Negociación', 'Contrato Corretaje', 'En Mercado', 'Concluida'];
 
@@ -121,16 +121,17 @@ export default function MisVentas() {
                     {!prop.is_client_signed_crm1 ? (
                       <>
                         <p className="text-sm text-gray-500">
-                          Sube el contrato de corretaje para que nuestra IA lo analice antes de firmar.
+                          Genera automáticamente el contrato de corretaje con las condiciones acordadas para firmarlo digitalmente.
                         </p>
                         <button
                           onClick={() => {
                             setAnalyzingPropertyId(prop.id);
                             setShowAnalyzer(true);
                           }}
-                          className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer"
+                          className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
-                          📄 Cargar y Analizar Contrato de Corretaje
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+                          Generar Contrato Automáticamente
                         </button>
                       </>
                     ) : (
@@ -166,16 +167,12 @@ export default function MisVentas() {
         </div>
       )}
 
-      {/* AI Document Analyzer Modal */}
-      <AIDocumentAnalyzer
+      {/* Auto Contract Generator Modal */}
+      <AutoContractGenerator
         isOpen={showAnalyzer}
         onClose={() => setShowAnalyzer(false)}
-        context="corretaje"
-        transactionType={
-          analyzingPropertyId
-            ? properties.find((p) => p.id === analyzingPropertyId)?.type || 'venta'
-            : 'venta'
-        }
+        property={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId) || null : null}
+        ownerName={user?.name || 'Propietario'}
         onSign={(filename) => {
           if (analyzingPropertyId) {
             handleSignContract(analyzingPropertyId, filename);
