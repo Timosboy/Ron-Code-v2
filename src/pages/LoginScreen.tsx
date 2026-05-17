@@ -26,21 +26,21 @@ export default function LoginScreen() {
       {/* Left Side - Image (Desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gray-900">
         <div className="absolute inset-0">
-          <img 
-            src="/login-bg.png" 
-            alt="Modern Corporate Building" 
+          <img
+            src="/login-bg.png"
+            alt="Modern Corporate Building"
             className="w-full h-full object-cover"
           />
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/40 to-transparent" />
         </div>
-        
+
         {/* Content on Image */}
         <div className="relative z-10 flex flex-col justify-end p-12 w-full">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md mb-6 border border-white/20">
             <Building2 className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tight mb-2">PropTech-Flow</h1>
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2">MORAR</h1>
           <p className="text-xl text-gray-300 font-medium max-w-md">
             El futuro de la gestión inmobiliaria. Conecta clientes y propiedades con total transparencia.
           </p>
@@ -51,9 +51,9 @@ export default function LoginScreen() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 lg:p-12 relative overflow-y-auto overflow-x-hidden scrollbar-hide">
         {/* Mobile background image */}
         <div className="absolute inset-0 lg:hidden">
-          <img 
-            src="/login-bg.png" 
-            alt="Modern Corporate Building" 
+          <img
+            src="/login-bg.png"
+            alt="Modern Corporate Building"
             className="w-full h-full object-cover opacity-20"
           />
           <div className="absolute inset-0 bg-white/90 backdrop-blur-sm" />
@@ -91,7 +91,7 @@ export default function LoginScreen() {
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
               <div className="relative">
@@ -140,7 +140,7 @@ export default function LoginScreen() {
                 <span className="px-2 bg-white text-gray-400 font-medium lg:bg-white bg-transparent">Credenciales de prueba</span>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3 mt-5">
               <button
                 onClick={() => { setEmail('maria@client.com'); setPassword('1234'); setRoleIndex(0); }}

@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── FastAPI App ────────────────────────────────────────────────
-app = FastAPI(title="PropTech-Flow API", version="1.0.0")
+app = FastAPI(title="MORAR API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -587,7 +587,7 @@ async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
     - Comisión pactada: {commission_text}
     - Exclusividad: {exclusivity}
     - Fecha: {today}, Cochabamba, Bolivia
-    - Corredor: PROPTECH-FLOW S.R.L.
+    - Corredor: MORAR
     
     Estructura obligatoria del contrato (cada cláusula numerada en MAYÚSCULAS):
     PRIMERA: (LAS PARTES) - Identificar propietario y corredor
@@ -595,7 +595,7 @@ async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
     TERCERA: (PRECIO DE OFERTA) - Precio base acordado
     CUARTA: (COMISIÓN Y HONORARIOS) - Monto y condiciones de pago
     QUINTA: (EXCLUSIVIDAD) - Duración y condiciones
-    SEXTA: (OBLIGACIONES DEL CORREDOR) - Servicios que provee PropTech-Flow
+    SEXTA: (OBLIGACIONES DEL CORREDOR) - Servicios que provee MORAR
     SÉPTIMA: (OBLIGACIONES DEL PROPIETARIO) - Compromisos del propietario
     OCTAVA: (RESOLUCIÓN DEL CONTRATO) - Causales de resolución
     NOVENA: (CONFORMIDAD DIGITAL) - Aceptación digital en plataforma
@@ -627,7 +627,7 @@ async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
 Cochabamba, Bolivia — {today}
 
 PRIMERA: (LAS PARTES)
-Intervienen en el presente contrato: {req.owner_name}, mayor de edad, hábil por derecho, en adelante EL/LA PROPIETARIO/A; y PROPTECH-FLOW S.R.L., representada por su agente autorizado, en adelante EL CORREDOR.
+Intervienen en el presente contrato: {req.owner_name}, mayor de edad, hábil por derecho, en adelante EL/LA PROPIETARIO/A; y MORAR, representada por su agente autorizado, en adelante EL CORREDOR.
 
 SEGUNDA: (DEL OBJETO DEL CONTRATO)
 EL/LA PROPIETARIO/A declara ser titular legítimo del inmueble denominado "{prop.title}" y otorga a EL CORREDOR mandato exclusivo para su {prop.type}.
@@ -642,7 +642,7 @@ QUINTA: (EXCLUSIVIDAD)
 El presente contrato tiene carácter de exclusividad por un período de {exclusivity}.
 
 SEXTA: (CONFORMIDAD DIGITAL)
-Las partes aceptan digitalmente el presente documento a través de la plataforma PropTech-Flow."""
+Las partes aceptan digitalmente el presente documento a través de la plataforma MORAR."""
     prop.corretaje_contract_content = fallback
     properties_db[req.property_id] = prop
     return {"content": fallback}
@@ -1093,7 +1093,7 @@ Responde UNICAMENTE con el JSON, sin markdown ni texto adicional."""
             f"[ESCENA 2 – 0:05-0:15] Interior.\nVoz: \"{prop.description[:80]}...\"\n\n"
             f"[ESCENA 3 – 0:15-0:22] Acabados. Texto: \"{price_str} | {type_label}\"\n\n"
             f"[ESCENA 4 – 0:22-0:28] Panorámica.\nVoz: \"¡Contáctanos hoy!\"\n\n"
-            f"[CIERRE – 0:28-0:30] Logo PropTech-Flow."
+            f"[CIERRE – 0:28-0:30] Logo MORAR."
         ),
     )
 

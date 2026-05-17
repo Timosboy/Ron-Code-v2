@@ -49,9 +49,13 @@ export default function ClientPortal() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
+              <img
+                src="/morar_white.ico"
+                alt="Logo"
+                className="w-6 h-6 object-contain"
+              />
             </div>
-            <span className="text-lg font-bold text-gray-900 hidden lg:block">PropTech-Flow</span>
+            <span className="text-lg font-bold text-gray-900 hidden lg:block">MORAR</span>
           </div>
 
           <div className="flex-1 flex justify-center">
