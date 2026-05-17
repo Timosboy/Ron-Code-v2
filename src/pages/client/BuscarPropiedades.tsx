@@ -110,7 +110,7 @@ export default function BuscarPropiedades() {
               onClick={() => setSelectedProperty(prop)}
               label={{
                 text: labelText,
-                color: isSelected ? '#FFFFFF' : '#111827',
+                color: isSelected ? '#F9F9F6' : '#4A5D7E',
                 fontWeight: '800',
                 fontSize: '12px',
                 className: 'mt-5 bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-gray-200 shadow-sm'

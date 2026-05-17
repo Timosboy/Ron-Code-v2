@@ -8,7 +8,7 @@ import MisCompras from './MisCompras';
 import PropietarioEstadisticas from './PropietarioEstadisticas';
 
 const TABS = [
-  { id: 'propiedades', label: 'Propiedades', icon: Home },
+  { id: 'propiedades', label: 'Mis propiedades', icon: Home },
   { id: 'ventas', label: 'Mis Ventas', icon: TrendingUp },
   { id: 'buscar', label: 'Buscar', icon: Search },
   { id: 'compras', label: 'Mis Compras', icon: ShoppingBag },
