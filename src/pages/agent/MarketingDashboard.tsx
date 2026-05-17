@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Megaphone, Sparkles, Share2, Camera, Eye, MousePointer,
-  Heart, MessageCircle, Copy, Check, ChevronDown, ChevronUp, BarChart2,
+  Heart, MessageCircle, Copy, Check, ChevronDown, ChevronUp, BarChart2, ThumbsUp, Repeat2, RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usePropertyStore } from '../../store/propertyStore';
@@ -11,12 +11,14 @@ import type { SocialPlatform, SocialPostRecord } from '../../types';
 export default function MarketingDashboard() {
   const user = useAuthStore((s) => s.user);
   const { properties, fetchProperties } = usePropertyStore();
-  const { campaign, analytics, loading, publishing, generateMarketing, publishContent, fetchAnalytics, reset } =
+  const { campaign, analytics, publishResult, loading, publishing, generateMarketing, publishContent, fetchAnalytics, reset } =
     useMarketingStore();
 
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [platforms, setPlatforms] = useState<SocialPlatform[]>(['FACEBOOK', 'INSTAGRAM']);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [publishedReal, setPublishedReal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showLongDesc, setShowLongDesc] = useState(false);
   const [showScript, setShowScript] = useState(false);
@@ -34,10 +36,27 @@ export default function MarketingDashboard() {
   useEffect(() => {
     reset();
     setPublishSuccess(false);
+    setPublishedReal(false);
     setShowLongDesc(false);
     setShowScript(false);
     if (selectedPropertyId) fetchAnalytics(selectedPropertyId);
   }, [selectedPropertyId, fetchAnalytics, reset]);
+
+  useEffect(() => {
+    if (publishResult) {
+      const anyReal = publishResult.posts.some((p) => p.status === 'published');
+      setPublishedReal(anyReal);
+    }
+  }, [publishResult]);
+
+  // Auto-refresh de métricas cada 30 segundos
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    const interval = setInterval(() => {
+      fetchAnalytics(selectedPropertyId);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedPropertyId, fetchAnalytics]);
 
   const agentProperties = properties.filter((p) => p.stage_crm1 >= 4);
 
@@ -52,8 +71,15 @@ export default function MarketingDashboard() {
     if (ok) {
       setPublishSuccess(true);
       fetchAnalytics(selectedPropertyId);
-      setTimeout(() => setPublishSuccess(false), 4000);
+      setTimeout(() => setPublishSuccess(false), 5000);
     }
+  };
+
+  const handleRefreshAnalytics = async () => {
+    if (!selectedPropertyId) return;
+    setRefreshing(true);
+    await fetchAnalytics(selectedPropertyId);
+    setRefreshing(false);
   };
 
   const handleCopy = (text: string, field: string) => {
@@ -298,7 +324,9 @@ export default function MarketingDashboard() {
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100 mb-3">
                   <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                   <p className="text-sm font-semibold text-emerald-700">
-                    ¡Publicado en {platforms.join(' e ')}! (modo simulado)
+                    {publishedReal
+                      ? `¡Publicado en ${platforms.join(' e ')}!`
+                      : `¡Contenido listo para ${platforms.join(' e ')}! (modo simulado — agrega tokens Meta para publicar de verdad)`}
                   </p>
                 </div>
               )}
@@ -325,16 +353,39 @@ export default function MarketingDashboard() {
 
           {/* Analytics */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <BarChart2 className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <BarChart2 className="w-4 h-4 text-emerald-600" />
+                </div>
+                <h2 className="text-base font-bold text-gray-900">Estadísticas</h2>
               </div>
-              <h2 className="text-base font-bold text-gray-900">Estadísticas</h2>
+              <button
+                onClick={handleRefreshAnalytics}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50 cursor-pointer"
+                title="Actualizar métricas"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                Actualizar
+              </button>
             </div>
 
             {analytics ? (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                {analytics.source === 'meta_api' && (
+                  <div className="flex items-center gap-1.5 mb-3 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 w-fit">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Datos reales de Meta</span>
+                  </div>
+                )}
+                {analytics.source === 'no_data' && (
+                  <div className="flex items-center gap-1.5 mb-3 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 w-fit">
+                    <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Publica primero para ver métricas reales</span>
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="bg-blue-50 rounded-2xl p-4 text-center">
                     <Eye className="w-5 h-5 text-blue-500 mx-auto mb-1.5" />
                     <p className="text-2xl font-black text-blue-700">{analytics.views.toLocaleString()}</p>
@@ -346,14 +397,24 @@ export default function MarketingDashboard() {
                     <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-wide mt-0.5">Clics</p>
                   </div>
                   <div className="bg-pink-50 rounded-2xl p-4 text-center">
-                    <Heart className="w-5 h-5 text-pink-500 mx-auto mb-1.5" />
-                    <p className="text-2xl font-black text-pink-700">{analytics.saves.toLocaleString()}</p>
-                    <p className="text-[10px] font-semibold text-pink-400 uppercase tracking-wide mt-0.5">Guardados</p>
+                    <ThumbsUp className="w-5 h-5 text-pink-500 mx-auto mb-1.5" />
+                    <p className="text-2xl font-black text-pink-700">{(analytics.likes ?? 0).toLocaleString()}</p>
+                    <p className="text-[10px] font-semibold text-pink-400 uppercase tracking-wide mt-0.5">Reacciones</p>
                   </div>
                   <div className="bg-emerald-50 rounded-2xl p-4 text-center">
                     <MessageCircle className="w-5 h-5 text-emerald-500 mx-auto mb-1.5" />
-                    <p className="text-2xl font-black text-emerald-700">{analytics.messages}</p>
-                    <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wide mt-0.5">Mensajes</p>
+                    <p className="text-2xl font-black text-emerald-700">{(analytics.comments ?? analytics.messages).toLocaleString()}</p>
+                    <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wide mt-0.5">Comentarios</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-2xl p-4 text-center">
+                    <Repeat2 className="w-5 h-5 text-amber-500 mx-auto mb-1.5" />
+                    <p className="text-2xl font-black text-amber-700">{(analytics.shares ?? 0).toLocaleString()}</p>
+                    <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wide mt-0.5">Compartidos</p>
+                  </div>
+                  <div className="bg-indigo-50 rounded-2xl p-4 text-center">
+                    <Heart className="w-5 h-5 text-indigo-500 mx-auto mb-1.5" />
+                    <p className="text-2xl font-black text-indigo-700">{analytics.saves.toLocaleString()}</p>
+                    <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide mt-0.5">Guardados</p>
                   </div>
                 </div>
 
@@ -381,8 +442,14 @@ export default function MarketingDashboard() {
                             )}
                             <span className="text-xs font-semibold text-gray-700">{post.platform}</span>
                           </div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-semibold">
-                            {post.status === 'simulated' ? 'Simulado' : 'Publicado'}
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                              post.status === 'published'
+                                ? 'bg-emerald-100 text-emerald-600'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {post.status === 'published' ? '✓ Publicado' : 'Simulado'}
                           </span>
                         </div>
                       ))}
