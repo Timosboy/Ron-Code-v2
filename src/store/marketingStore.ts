@@ -1,9 +1,15 @@
 import { create } from 'zustand';
-import type { MarketingCampaign, PropertyAnalytics, PublishContentRequest } from '../types';
+import type { MarketingCampaign, PropertyAnalytics, PublishContentRequest, SocialPostRecord } from '../types';
+
+interface PublishResult {
+  published: number;
+  posts: SocialPostRecord[];
+}
 
 interface MarketingState {
   campaign: MarketingCampaign | null;
   analytics: PropertyAnalytics | null;
+  publishResult: PublishResult | null;
   loading: boolean;
   publishing: boolean;
   generateMarketing: (propertyId: string) => Promise<void>;
@@ -16,6 +22,7 @@ interface MarketingState {
 export const useMarketingStore = create<MarketingState>()((set) => ({
   campaign: null,
   analytics: null,
+  publishResult: null,
   loading: false,
   publishing: false,
 
@@ -41,8 +48,13 @@ export const useMarketingStore = create<MarketingState>()((set) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
       });
-      set({ publishing: false });
-      return res.ok;
+      if (!res.ok) {
+        set({ publishing: false });
+        return false;
+      }
+      const data: PublishResult = await res.json();
+      set({ publishing: false, publishResult: data });
+      return true;
     } catch {
       set({ publishing: false });
       return false;
@@ -71,5 +83,5 @@ export const useMarketingStore = create<MarketingState>()((set) => ({
     }
   },
 
-  reset: () => set({ campaign: null, analytics: null }),
+  reset: () => set({ campaign: null, analytics: null, publishResult: null }),
 }));
