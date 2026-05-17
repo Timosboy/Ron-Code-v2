@@ -179,11 +179,28 @@ export default function MisVentas() {
         onClose={() => setShowAnalyzer(false)}
         property={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId) || null : null}
         ownerName={user?.name || 'Propietario'}
-        onSign={(filename) => {
+        aiContent={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId)?.corretaje_contract_content : null}
+        onAccept={(filename) => {
           if (analyzingPropertyId) {
             handleSignContract(analyzingPropertyId, filename);
           }
         }}
+        onCounteroffer={async (data) => {
+          if (analyzingPropertyId) {
+            await updateStage(analyzingPropertyId, {
+              corretaje_status: 'counteroffer',
+              corretaje_counteroffer_data: {
+                commission_type: data.type,
+                amount: data.amount ? parseFloat(data.amount) : undefined,
+                exclusivity_months: data.exclusivity ? parseInt(data.exclusivity, 10) : undefined,
+                message: data.message
+              }
+            });
+            fetchProperties({ owner_id: user!.id });
+            setShowAnalyzer(false);
+          }
+        }}
+        onReject={() => setShowAnalyzer(false)}
       />
     </div>
   );

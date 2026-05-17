@@ -2,3 +2,8 @@ fastapi
 uvicorn[standard]
 pydantic
 mangum
+openai
+pypdf
+python-docx
+python-multipart
+python-dotenv

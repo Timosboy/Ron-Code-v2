@@ -36,7 +36,7 @@ export default function BuscarPropiedades() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { isLoaded } = useLoadScript({
-    googleMapsApiKey: '', // Key will be added by user later
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
   });
 
   useEffect(() => {
