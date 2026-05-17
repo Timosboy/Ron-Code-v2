@@ -51,9 +51,9 @@ export default function AutoContractGenerator({ isOpen, onClose, property, owner
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={onClose} />
-      
+
       <div className="relative bg-gray-50 rounded-3xl shadow-2xl w-full max-w-3xl h-[90vh] flex flex-col overflow-hidden animate-scaleIn border border-gray-200">
-        
+
         {/* Header */}
         <div className="bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-3">
@@ -95,10 +95,10 @@ export default function AutoContractGenerator({ isOpen, onClose, property, owner
                 <h3 className="font-bold mb-2">PRIMERA: (LAS PARTES)</h3>
                 <p className="mb-4 text-justify">
                   Intervienen en la celebración del presente contrato:
-                  <br/><br/>
+                  <br /><br />
                   <strong>1.1.</strong> Por una parte, el/la Sr/a. <strong>{ownerName}</strong>, mayor de edad, hábil por derecho, en adelante denominado/a <strong>EL/LA PROPIETARIO/A</strong>.
-                  <br/><br/>
-                  <strong>1.2.</strong> Por otra parte, <strong>PROPTECH-FLOW S.R.L.</strong>, representada legalmente por su agente inmobiliario autorizado, en adelante denominado <strong>EL CORREDOR</strong>.
+                  <br /><br />
+                  <strong>1.2.</strong> Por otra parte, <strong>MORAR S.R.L.</strong>, representada legalmente por su agente inmobiliario autorizado, en adelante denominado <strong>EL CORREDOR</strong>.
                 </p>
 
                 <h3 className="font-bold mb-2">SEGUNDA: (DEL OBJETO DEL CONTRATO)</h3>
@@ -113,8 +113,8 @@ export default function AutoContractGenerator({ isOpen, onClose, property, owner
 
                 <h3 className="font-bold mb-2">CUARTA: (DE LA COMISIÓN Y HONORARIOS)</h3>
                 <p className="mb-4 text-justify">
-                  En caso de concretarse la {property.type} del inmueble producto de la gestión de EL CORREDOR, EL/LA PROPIETARIO/A se compromete a cancelar por concepto de honorarios profesionales la suma equivalente a: 
-                  <br/><br/>
+                  En caso de concretarse la {property.type} del inmueble producto de la gestión de EL CORREDOR, EL/LA PROPIETARIO/A se compromete a cancelar por concepto de honorarios profesionales la suma equivalente a:
+                  <br /><br />
                   <span className="block p-3 bg-violet-50 border border-violet-200 rounded text-violet-900 font-semibold text-center text-lg my-2">
                     {commissionText}
                   </span>
@@ -123,7 +123,7 @@ export default function AutoContractGenerator({ isOpen, onClose, property, owner
 
                 <h3 className="font-bold mb-2">QUINTA: (CONFORMIDAD Y ACEPTACIÓN DIGITAL)</h3>
                 <p className="mb-12 text-justify">
-                  En señal de absoluta conformidad con cada una de las cláusulas procedentes, las partes aceptan digitalmente el presente documento a través de la plataforma PropTech-Flow.
+                  En señal de absoluta conformidad con cada una de las cláusulas procedentes, las partes aceptan digitalmente el presente documento a través de la plataforma MORAR.
                 </p>
               </>
             )}
@@ -222,7 +222,7 @@ export default function AutoContractGenerator({ isOpen, onClose, property, owner
               <ShieldCheck className="w-4 h-4" />
               <span className="text-xs font-bold">Documento acordado digitalmente</span>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={onClose}
