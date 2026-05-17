@@ -43,6 +43,8 @@ export interface Property {
   is_agent_signed_crm1: boolean;
   is_client_signed_crm1: boolean;
   published_to_map: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export interface LeadCRM2 {
