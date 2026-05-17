@@ -6,6 +6,7 @@ from mangum import Mangum
 import uuid
 import random
 import os
+import requests as _requests
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from openai import OpenAI
@@ -26,7 +27,7 @@ from r2_storage import (
 load_dotenv()
 
 # ─── FastAPI App ────────────────────────────────────────────────
-app = FastAPI(title="PropTech-Flow API", version="1.0.0")
+app = FastAPI(title="MORAR API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -318,7 +319,27 @@ leads_db: dict[str, LeadCRM2] = {
                   stage_crm2=1),
 }
 marketing_campaigns_db: dict[str, dict] = {}
-social_posts_db: dict[str, dict] = {}
+
+# ─── Social Posts — persiste en archivo JSON para sobrevivir reinicios ────
+import json as _json_persist
+
+_POSTS_FILE = os.path.join(os.path.dirname(__file__), "social_posts.json")
+
+def _load_social_posts() -> dict:
+    try:
+        with open(_POSTS_FILE, "r", encoding="utf-8") as f:
+            return _json_persist.load(f)
+    except Exception:
+        return {}
+
+def _save_social_posts() -> None:
+    try:
+        with open(_POSTS_FILE, "w", encoding="utf-8") as f:
+            _json_persist.dump(social_posts_db, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error saving posts: {e}")
+
+social_posts_db: dict[str, dict] = _load_social_posts()
 
 # ─── Buyer CRM In-Memory Stores ──────────────────────────────
 
@@ -646,7 +667,7 @@ async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
     - Comisión pactada: {commission_text}
     - Exclusividad: {exclusivity}
     - Fecha: {today}, Cochabamba, Bolivia
-    - Corredor: PROPTECH-FLOW S.R.L.
+    - Corredor: MORAR
     
     Estructura obligatoria del contrato (cada cláusula numerada en MAYÚSCULAS):
     PRIMERA: (LAS PARTES) - Identificar propietario y corredor
@@ -654,7 +675,7 @@ async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
     TERCERA: (PRECIO DE OFERTA) - Precio base acordado
     CUARTA: (COMISIÓN Y HONORARIOS) - Monto y condiciones de pago
     QUINTA: (EXCLUSIVIDAD) - Duración y condiciones
-    SEXTA: (OBLIGACIONES DEL CORREDOR) - Servicios que provee PropTech-Flow
+    SEXTA: (OBLIGACIONES DEL CORREDOR) - Servicios que provee MORAR
     SÉPTIMA: (OBLIGACIONES DEL PROPIETARIO) - Compromisos del propietario
     OCTAVA: (RESOLUCIÓN DEL CONTRATO) - Causales de resolución
     NOVENA: (CONFORMIDAD DIGITAL) - Aceptación digital en plataforma
@@ -686,7 +707,7 @@ async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
 Cochabamba, Bolivia — {today}
 
 PRIMERA: (LAS PARTES)
-Intervienen en el presente contrato: {req.owner_name}, mayor de edad, hábil por derecho, en adelante EL/LA PROPIETARIO/A; y PROPTECH-FLOW S.R.L., representada por su agente autorizado, en adelante EL CORREDOR.
+Intervienen en el presente contrato: {req.owner_name}, mayor de edad, hábil por derecho, en adelante EL/LA PROPIETARIO/A; y MORAR, representada por su agente autorizado, en adelante EL CORREDOR.
 
 SEGUNDA: (DEL OBJETO DEL CONTRATO)
 EL/LA PROPIETARIO/A declara ser titular legítimo del inmueble denominado "{prop.title}" y otorga a EL CORREDOR mandato exclusivo para su {prop.type}.
@@ -701,7 +722,7 @@ QUINTA: (EXCLUSIVIDAD)
 El presente contrato tiene carácter de exclusividad por un período de {exclusivity}.
 
 SEXTA: (CONFORMIDAD DIGITAL)
-Las partes aceptan digitalmente el presente documento a través de la plataforma PropTech-Flow."""
+Las partes aceptan digitalmente el presente documento a través de la plataforma MORAR."""
     prop.corretaje_contract_content = fallback
     properties_db[req.property_id] = prop
     return {"content": fallback}
@@ -1061,80 +1082,455 @@ def get_agent_dashboard(agent_id: str):
 # ─── Marketing Helpers ────────────────────────────────────────
 
 def generate_marketing_content(prop: Property) -> MarketingContent:
+    import json as _json
     type_map = {"venta": "Venta", "alquiler": "Alquiler", "anticretico": "Anticrético"}
     type_label = type_map[prop.type]
     price_str = f"USD {prop.price:,.0f}" if prop.currency == "USD" else f"BOB {prop.price:,.0f}"
-    doc_note = "✅ Documentos saneados" if prop.status_documents == "saneado" else "⚠️ Consultar documentación"
+    doc_note = "Documentos saneados" if prop.status_documents == "saneado" else "Consultar documentación"
 
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        try:
+            oai_client = OpenAI(api_key=api_key)
+            prompt = f"""Eres un experto en marketing inmobiliario para el mercado boliviano.
+Genera contenido de redes sociales para esta propiedad y devuelve SOLO un JSON con estas claves exactas:
+- title: titulo atractivo maximo 80 caracteres
+- short_description: descripcion corta impactante maximo 120 caracteres
+- long_description: descripcion larga con emojis maximo 400 caracteres destacando precio y documentacion
+- hashtags: lista de 6 hashtags relevantes para Bolivia
+- cta: llamada a la accion urgente maximo 80 caracteres
+- reel_script: script de reel de 30 segundos con 4 escenas y timecodes
+
+PROPIEDAD:
+Nombre: {prop.title}
+Descripcion: {prop.description}
+Operacion: {type_label}
+Precio: {price_str}
+Documentacion: {doc_note}
+
+Responde UNICAMENTE con el JSON, sin markdown ni texto adicional."""
+
+            response = oai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Eres un experto en marketing inmobiliario boliviano. Respondes solo con JSON valido, sin markdown."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=1000,
+            )
+            raw = response.choices[0].message.content.strip()
+            # Limpia markdown si el modelo lo incluye pese a la instruccion
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            data = _json.loads(raw)
+
+            # reel_script puede llegar como string o como lista de escenas
+            reel_raw = data.get("reel_script", "")
+            if isinstance(reel_raw, list):
+                reel_script = "\n\n".join(
+                    f"[{s.get('timecode', '')}] {s.get('scene', s.get('description', str(s)))}"
+                    for s in reel_raw
+                )
+            else:
+                reel_script = str(reel_raw)
+
+            return MarketingContent(
+                title=data.get("title", prop.title),
+                short_description=data.get("short_description", ""),
+                long_description=data.get("long_description", ""),
+                hashtags=[str(h) for h in data.get("hashtags", [])],
+                cta=data.get("cta", ""),
+                reel_script=reel_script,
+            )
+        except Exception as e:
+            print(f"OpenAI marketing error: {e}")
+
+    # Fallback si OpenAI no esta disponible
+    hashtags = [
+        f"#{prop.type.capitalize()}Bolivia", "#InmuebleBolivia", "#PropTechFlow",
+        "#BienesRaices", "#Inmuebles",
+        "#PropiedadSaneada" if prop.status_documents == "saneado" else "#OportunidadInmobiliaria",
+    ]
     title_map = {
         "venta": f"¡{prop.title} – Tu nuevo hogar te espera!",
         "alquiler": f"{prop.title} – Disponible para alquiler inmediato",
         "anticretico": f"{prop.title} – Oportunidad única en anticrético",
     }
-    hashtags = [
-        f"#{prop.type.capitalize()}Bolivia",
-        "#InmuebleBolivia",
-        "#PropTechFlow",
-        "#BienesRaices",
-        "#Inmuebles",
-        "#PropiedadSaneada" if prop.status_documents == "saneado" else "#OportunidadInmobiliaria",
-    ]
-
     return MarketingContent(
         title=title_map[prop.type],
-        short_description=(
-            f"{prop.description[:120]}... "
-            f"Precio: {price_str} | {type_label}. {doc_note}."
-        ),
+        short_description=f"{prop.description[:120]}... Precio: {price_str} | {type_label}.",
         long_description=(
-            f"🏠 {prop.title}\n\n"
-            f"{prop.description}\n\n"
-            f"💰 Precio: {price_str}\n"
-            f"📋 Modalidad: {type_label}\n"
-            f"📄 Documentación: {doc_note}\n\n"
-            f"¿Te imaginas aquí? Esta es tu oportunidad de encontrar el inmueble ideal.\n"
-            f"Contáctanos hoy y agenda tu visita sin compromiso.\n\n"
-            f"#PropTechFlow #InmuebleBolivia"
+            f"🏠 {prop.title}\n\n{prop.description}\n\n"
+            f"💰 {price_str} | 📋 {type_label} | 📄 {doc_note}\n\n"
+            f"Contáctanos y agenda tu visita. #PropTechFlow"
         ),
         hashtags=hashtags,
-        cta="📩 ¡Escríbenos ahora y agenda tu visita! No dejes pasar esta oportunidad.",
+        cta="📩 ¡Escríbenos ahora y agenda tu visita!",
         reel_script=(
-            f"[ESCENA 1 – 0:00-0:05]\n"
-            f"Toma exterior / fachada del inmueble.\n"
-            f"Texto animado: \"{prop.title}\"\n"
-            f"Música: Dinámica y moderna.\n\n"
-            f"[ESCENA 2 – 0:05-0:15]\n"
-            f"Recorrido interior: sala principal, cocina, dormitorios.\n"
-            f"Voz en off: \"{prop.description[:80]}...\"\n\n"
-            f"[ESCENA 3 – 0:15-0:22]\n"
-            f"Primer plano de acabados y características destacadas.\n"
-            f"Texto en pantalla: \"{price_str} | {type_label}\"\n\n"
-            f"[ESCENA 4 – 0:22-0:28]\n"
-            f"Panorámica final del inmueble o zona.\n"
-            f"Voz en off: \"¡Contáctanos hoy! Tu inmueble ideal te espera.\"\n\n"
-            f"[CIERRE – 0:28-0:30]\n"
-            f"Logo PropTech-Flow sobre fondo degradado violeta.\n"
-            f"Texto: \"Agenda tu visita – PropTech-Flow\""
+            f"[ESCENA 1 – 0:00-0:05] Fachada. Texto: \"{prop.title}\"\n\n"
+            f"[ESCENA 2 – 0:05-0:15] Interior.\nVoz: \"{prop.description[:80]}...\"\n\n"
+            f"[ESCENA 3 – 0:15-0:22] Acabados. Texto: \"{price_str} | {type_label}\"\n\n"
+            f"[ESCENA 4 – 0:22-0:28] Panorámica.\nVoz: \"¡Contáctanos hoy!\"\n\n"
+            f"[CIERRE – 0:28-0:30] Logo MORAR."
         ),
     )
 
 
 def generate_mock_analytics(property_id: str, posts: list) -> dict:
-    rng = random.Random(sum(ord(c) for c in property_id))
-    views = rng.randint(1200, 6500)
-    clicks = rng.randint(80, max(81, views // 6))
-    saves = rng.randint(15, max(16, clicks // 3))
-    messages = rng.randint(5, max(6, saves // 2))
-    raw_score = (clicks + saves * 2 + messages * 3) / max(views, 1) * 100
+    views = sum(p.get("demo_views", 0) for p in posts)
+    clicks = sum(p.get("demo_clicks", 0) for p in posts)
+    likes = sum(p.get("demo_likes", 0) for p in posts)
+    comments = sum(p.get("demo_comments", 0) for p in posts)
+    raw_score = (likes * 2 + comments * 4 + clicks) / max(views + 1, 1) * 10
     return {
         "property_id": property_id,
         "views": views,
         "clicks": clicks,
-        "saves": saves,
-        "messages": messages,
+        "likes": likes,
+        "comments": comments,
+        "shares": 0,
+        "saves": 0,
+        "messages": comments,
         "engagement_score": round(min(raw_score, 9.9), 1),
         "posts": posts,
+        "source": "no_data",
     }
+
+
+# ─── Meta Graph API Helpers ───────────────────────────────────
+
+_META_API = "https://graph.facebook.com/v19.0"
+
+
+def _post_to_facebook(text: str) -> Optional[str]:
+    """Posts to a Facebook Page. Returns the post_id on success, None if not configured or failed."""
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    page_id = os.getenv("META_PAGE_ID", "")
+    if not token or not page_id:
+        return None
+
+    image_url = os.getenv("META_DEFAULT_IMAGE_URL", "")
+
+    # Intento 1: post con imagen
+    if image_url:
+        try:
+            resp = _requests.post(
+                f"{_META_API}/{page_id}/photos",
+                data={"caption": text, "url": image_url, "access_token": token},
+                timeout=20,
+            )
+            if resp.ok:
+                body = resp.json()
+                return body.get("post_id") or body.get("id")
+        except Exception:
+            pass
+
+    # Intento 2: post solo texto (fallback)
+    try:
+        resp = _requests.post(
+            f"{_META_API}/{page_id}/feed",
+            data={"message": text, "access_token": token},
+            timeout=15,
+        )
+        if resp.ok:
+            return resp.json().get("id")
+    except Exception:
+        pass
+
+    return None
+
+
+def _post_to_instagram(caption: str) -> Optional[str]:
+    """Posts to an Instagram Business account (2-step flow). Returns media_id on success, None otherwise."""
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    ig_user_id = os.getenv("META_IG_USER_ID", "")
+    image_url = os.getenv("META_DEFAULT_IMAGE_URL", "")
+    if not token or not ig_user_id or not image_url:
+        return None
+    try:
+        # Step 1: create media container
+        r1 = _requests.post(
+            f"{_META_API}/{ig_user_id}/media",
+            data={"image_url": image_url, "caption": caption[:2200], "access_token": token},
+            timeout=15,
+        )
+        r1.raise_for_status()
+        container_id = r1.json().get("id")
+        if not container_id:
+            return None
+        # Step 2: publish container
+        r2 = _requests.post(
+            f"{_META_API}/{ig_user_id}/media_publish",
+            data={"creation_id": container_id, "access_token": token},
+            timeout=15,
+        )
+        r2.raise_for_status()
+        return r2.json().get("id")
+    except Exception:
+        return None
+
+
+def _fetch_real_insights(posts: list, property_id: str) -> Optional[dict]:
+    """Fetches real engagement from Meta Graph API.
+    Reactions/comments/shares are immediate. Views/clicks need ~15 min to populate."""
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    if not token:
+        return None
+    real_posts = [p for p in posts if p.get("meta_post_id")]
+    if not real_posts:
+        return None
+
+    total_views = 0
+    total_clicks = 0
+    total_likes = 0
+    total_comments = 0
+    total_shares = 0
+
+    for post in real_posts:
+        mid = post["meta_post_id"]
+        try:
+            if post["platform"] == "FACEBOOK":
+                # Reacciones, comentarios y compartidos — disponibles inmediatamente
+                resp = _requests.get(
+                    f"{_META_API}/{mid}",
+                    params={
+                        "fields": "reactions.summary(true),comments.summary(true),shares",
+                        "access_token": token,
+                    },
+                    timeout=10,
+                )
+                if resp.ok:
+                    data = resp.json()
+                    total_likes += data.get("reactions", {}).get("summary", {}).get("total_count", 0)
+                    total_comments += data.get("comments", {}).get("summary", {}).get("total_count", 0)
+                    total_shares += data.get("shares", {}).get("count", 0)
+
+                # Impresiones y clics — disponibles ~15 min después de publicar
+                resp2 = _requests.get(
+                    f"{_META_API}/{mid}/insights",
+                    params={"metric": "post_impressions,post_clicks", "period": "lifetime", "access_token": token},
+                    timeout=10,
+                )
+                if resp2.ok:
+                    for item in resp2.json().get("data", []):
+                        values = item.get("values", [{}])
+                        val = values[-1].get("value", 0) if values else 0
+                        if item["name"] == "post_impressions":
+                            total_views += val
+                        elif item["name"] == "post_clicks":
+                            total_clicks += val
+
+            elif post["platform"] == "INSTAGRAM":
+                resp = _requests.get(
+                    f"{_META_API}/{mid}",
+                    params={
+                        "fields": "like_count,comments_count",
+                        "access_token": token,
+                    },
+                    timeout=10,
+                )
+                if resp.ok:
+                    data = resp.json()
+                    total_likes += data.get("like_count", 0)
+                    total_comments += data.get("comments_count", 0)
+
+                resp2 = _requests.get(
+                    f"{_META_API}/{mid}/insights",
+                    params={"metric": "impressions,saves", "access_token": token},
+                    timeout=10,
+                )
+                if resp2.ok:
+                    for item in resp2.json().get("data", []):
+                        values = item.get("values", [{}])
+                        val = values[-1].get("value", 0) if values else 0
+                        if item["name"] == "impressions":
+                            total_views += val
+
+        except Exception:
+            continue
+
+    # Si no hay ningún dato real aún, retorna None para usar el mock
+    if total_likes == 0 and total_comments == 0 and total_shares == 0 and total_views == 0:
+        return None
+
+    raw_score = (total_likes * 2 + total_comments * 4 + total_shares * 6 + total_clicks) / max(total_views + 1, 1) * 10
+    return {
+        "property_id": property_id,
+        "views": total_views,
+        "clicks": total_clicks,
+        "likes": total_likes,
+        "comments": total_comments,
+        "shares": total_shares,
+        "saves": 0,
+        "messages": total_comments,
+        "engagement_score": round(min(raw_score, 9.9), 1),
+        "posts": posts,
+        "source": "meta_api",
+    }
+
+
+# ─── Debug Endpoint (temporal) ────────────────────────────────
+
+@app.get("/api/debug/meta")
+def debug_meta():
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    page_id = os.getenv("META_PAGE_ID", "")
+    ig_user_id = os.getenv("META_IG_USER_ID", "")
+    image_url = os.getenv("META_DEFAULT_IMAGE_URL", "")
+    result = {
+        "META_ACCESS_TOKEN": f"{token[:10]}...{token[-5:]}" if len(token) > 15 else ("VACÍO" if not token else token),
+        "META_PAGE_ID": page_id or "VACÍO",
+        "META_IG_USER_ID": ig_user_id or "VACÍO",
+        "ids_son_iguales": page_id == ig_user_id,
+        "META_DEFAULT_IMAGE_URL": image_url or "VACÍO",
+        "tokens_configurados": bool(token and page_id),
+    }
+    if token and page_id:
+        # Test página de Facebook
+        try:
+            resp = _requests.get(
+                f"{_META_API}/{page_id}",
+                params={"fields": "name,id", "access_token": token},
+                timeout=10,
+            )
+            result["facebook_page_test"] = resp.json()
+        except Exception as e:
+            result["facebook_page_test"] = f"ERROR: {e}"
+
+        # Test permisos del token
+        try:
+            resp = _requests.get(
+                f"{_META_API}/me/permissions",
+                params={"access_token": token},
+                timeout=10,
+            )
+            perms = resp.json().get("data", [])
+            result["permisos"] = [p["permission"] for p in perms if p.get("status") == "granted"]
+        except Exception as e:
+            result["permisos"] = f"ERROR: {e}"
+
+        # Test publicación en Facebook (texto simple, sin imagen)
+        try:
+            resp = _requests.post(
+                f"{_META_API}/{page_id}/feed",
+                data={"message": "[TEST PropTechFlow] Verificando conexión.", "access_token": token},
+                timeout=15,
+            )
+            result["facebook_post_test"] = resp.json()
+        except Exception as e:
+            result["facebook_post_test"] = f"ERROR: {e}"
+
+        # Test Instagram: obtener cuenta vinculada
+        try:
+            resp = _requests.get(
+                f"{_META_API}/{page_id}",
+                params={"fields": "instagram_business_account", "access_token": token},
+                timeout=10,
+            )
+            result["instagram_vinculado"] = resp.json()
+        except Exception as e:
+            result["instagram_vinculado"] = f"ERROR: {e}"
+    return result
+
+
+@app.get("/api/debug/analytics/{property_id}")
+def debug_analytics(property_id: str):
+    """Returns raw Meta API responses for all posts of a property — use to diagnose why metrics show 0."""
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    page_id = os.getenv("META_PAGE_ID", "")
+    result = {
+        "property_id": property_id,
+        "token_configured": bool(token),
+        "posts_in_db": [],
+        "meta_responses": [],
+    }
+    posts = [
+        {**v, "id": k}
+        for k, v in social_posts_db.items()
+        if v.get("property_id") == property_id
+    ]
+    result["posts_in_db"] = posts
+
+    if not token:
+        result["error"] = "META_ACCESS_TOKEN no configurado"
+        return result
+
+    for post in posts:
+        mid = post.get("meta_post_id")
+        platform = post.get("platform")
+        entry = {"meta_post_id": mid, "platform": platform, "reactions_raw": None, "insights_raw": None, "error": None}
+        if not mid:
+            entry["error"] = "No meta_post_id stored"
+            result["meta_responses"].append(entry)
+            continue
+        try:
+            if platform == "FACEBOOK":
+                r = _requests.get(
+                    f"{_META_API}/{mid}",
+                    params={"fields": "id,reactions.summary(true),comments.summary(true),shares", "access_token": token},
+                    timeout=10,
+                )
+                entry["reactions_raw"] = {"status": r.status_code, "body": r.json()}
+                r2 = _requests.get(
+                    f"{_META_API}/{mid}/insights",
+                    params={"metric": "post_impressions,post_clicks", "period": "lifetime", "access_token": token},
+                    timeout=10,
+                )
+                entry["insights_raw"] = {"status": r2.status_code, "body": r2.json()}
+                # Also try as page post via page ID (in case mid is photo id, not post id)
+                if page_id and "_" not in str(mid):
+                    r3 = _requests.get(
+                        f"{_META_API}/{page_id}_{mid}",
+                        params={"fields": "id,reactions.summary(true),comments.summary(true),shares", "access_token": token},
+                        timeout=10,
+                    )
+                    entry["with_page_prefix"] = {"status": r3.status_code, "body": r3.json()}
+            elif platform == "INSTAGRAM":
+                r = _requests.get(
+                    f"{_META_API}/{mid}",
+                    params={"fields": "id,like_count,comments_count", "access_token": token},
+                    timeout=10,
+                )
+                entry["reactions_raw"] = {"status": r.status_code, "body": r.json()}
+        except Exception as e:
+            entry["error"] = str(e)
+        result["meta_responses"].append(entry)
+    return result
+
+
+@app.get("/api/debug/openai")
+def debug_openai():
+    import json as _json
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return {"error": "OPENAI_API_KEY no configurado"}
+    prop = list(properties_db.values())[0]
+    type_map = {"venta": "Venta", "alquiler": "Alquiler", "anticretico": "Anticrético"}
+    type_label = type_map[prop.type]
+    price_str = f"USD {prop.price:,.0f}" if prop.currency == "USD" else f"BOB {prop.price:,.0f}"
+    doc_note = "Documentos saneados" if prop.status_documents == "saneado" else "Consultar documentacion"
+    prompt = f"""Devuelve SOLO un JSON con estas claves: title, short_description, long_description, hashtags (lista), cta, reel_script.
+PROPIEDAD: {prop.title}, {type_label}, {price_str}, {doc_note}. Descripcion: {prop.description}"""
+    try:
+        oai = OpenAI(api_key=api_key)
+        r = oai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Responde solo con JSON valido, sin markdown."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=800,
+        )
+        raw = r.choices[0].message.content.strip()
+        try:
+            data = _json.loads(raw)
+            return {"status": "ok", "key_prefix": api_key[:10], "parsed": True, "title": data.get("title")}
+        except Exception as parse_err:
+            return {"status": "parse_error", "detail": str(parse_err), "raw_preview": raw[:300]}
+    except Exception as e:
+        return {"status": "api_error", "detail": str(e)}
 
 
 # ─── Marketing Endpoints ──────────────────────────────────────
@@ -1155,18 +1551,39 @@ def generate_marketing(property_id: str):
 def publish_property(property_id: str, req: PublishContentRequest):
     if property_id not in properties_db:
         raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+
+    full_text = (
+        f"{req.content.long_description}\n\n"
+        f"{' '.join(req.content.hashtags)}\n\n"
+        f"{req.content.cta}"
+    )
+
     posts = []
     for platform in req.platforms:
         pid = f"sp{uuid.uuid4().hex[:8]}"
+        meta_post_id: Optional[str] = None
+
+        if platform == "FACEBOOK":
+            meta_post_id = _post_to_facebook(full_text)
+        elif platform == "INSTAGRAM":
+            meta_post_id = _post_to_instagram(full_text)
+
         post = {
             "id": pid,
             "property_id": property_id,
             "platform": platform,
-            "status": "simulated",
+            "status": "published" if meta_post_id else "simulated",
             "content_title": req.content.title,
+            "meta_post_id": meta_post_id,
+            "demo_views": 1,
+            "demo_clicks": 1,
+            "demo_likes": 1,
+            "demo_comments": 1,
         }
         social_posts_db[pid] = post
         posts.append(post)
+
+    _save_social_posts()
     return {"published": len(posts), "posts": posts}
 
 
@@ -1175,7 +1592,7 @@ def get_property_analytics(property_id: str):
     if property_id not in properties_db:
         raise HTTPException(status_code=404, detail="Propiedad no encontrada")
     posts = [p for p in social_posts_db.values() if p["property_id"] == property_id]
-    return generate_mock_analytics(property_id, posts)
+    return _fetch_real_insights(posts, property_id) or generate_mock_analytics(property_id, posts)
 
 
 @app.get("/api/owners/properties/{property_id}/analytics")
@@ -1186,7 +1603,7 @@ def get_owner_property_analytics(property_id: str, owner_id: str = ""):
     if owner_id and prop.owner_id != owner_id:
         raise HTTPException(status_code=403, detail="No autorizado para ver esta propiedad")
     posts = [p for p in social_posts_db.values() if p["property_id"] == property_id]
-    return generate_mock_analytics(property_id, posts)
+    return _fetch_real_insights(posts, property_id) or generate_mock_analytics(property_id, posts)
 
 
 # ─── Vercel Serverless Handler ────────────────────────────────

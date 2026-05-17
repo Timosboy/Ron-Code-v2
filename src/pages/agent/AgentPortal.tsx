@@ -28,9 +28,13 @@ export default function AgentPortal() {
           <div className="h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
+                <img
+                  src="/morar_white.ico"
+                  alt="Logo"
+                  className="w-6 h-6 object-contain"
+                />
               </div>
-              <span className="text-lg font-bold text-gray-900 hidden sm:block">PropTech-Flow</span>
+              <span className="text-lg font-bold text-gray-900 hidden sm:block">MORAR</span>
               <span className="px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 text-[10px] font-bold hidden sm:block">AGENTE</span>
             </div>
             <div className="flex items-center gap-3">
@@ -59,11 +63,10 @@ export default function AgentPortal() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                    isActive
-                      ? 'text-violet-700 border-violet-600'
-                      : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${isActive
+                    ? 'text-violet-700 border-violet-600'
+                    : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {tab.label}

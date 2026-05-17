@@ -206,6 +206,7 @@ export interface SocialPostRecord {
   platform: SocialPlatform;
   status: 'published' | 'simulated';
   content_title: string;
+  meta_post_id?: string | null;
 }
 
 export interface PublishContentRequest {
@@ -217,10 +218,14 @@ export interface PropertyAnalytics {
   property_id: string;
   views: number;
   clicks: number;
+  likes: number;
+  comments: number;
+  shares: number;
   saves: number;
   messages: number;
   engagement_score: number;
   posts: SocialPostRecord[];
+  source?: 'meta_api' | 'no_data';
 }
 
 // ─── CRM Stage Labels ────────────────────────────────────────
