@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\CURSOS-PAGADOS\\\\CochaTetch\\\\Ron-Code-v2\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

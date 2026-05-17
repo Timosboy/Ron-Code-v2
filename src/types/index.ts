@@ -39,7 +39,16 @@ export interface Property {
   commission_type: CommissionType | null;
   proposed_commission: number | null;
   client_accepted_commission: boolean;
+  corretaje_status: 'pending' | 'accepted' | 'counteroffer' | null;
+  corretaje_exclusivity_months: number | null;
+  corretaje_counteroffer_data: {
+    commission_type?: CommissionType;
+    amount?: number;
+    exclusivity_months?: number;
+    message?: string;
+  } | null;
   corretaje_contract_filename: string | null;
+  corretaje_contract_content: string | null;
   is_agent_signed_crm1: boolean;
   is_client_signed_crm1: boolean;
   published_to_map: boolean;
@@ -56,17 +65,19 @@ export interface LeadCRM2 {
   buyer_email: string;
   agent_id: string;
   stage_crm2: number;
-  offer_price: number;
-  payment_method: PaymentMethod;
+  // Stage 2: Interés
+  buyer_showed_interest: boolean;
   reservation_amount: number | null;
-  compromiso_contract_filename: string | null;
-  is_agent_signed_crm2_s2: boolean;
-  is_buyer_signed_crm2_s2: boolean;
-  final_contract_filename: string | null;
-  notary_office_number: string | null;
-  is_agent_signed_crm2_s3: boolean;
-  is_buyer_signed_crm2_s3: boolean;
-  is_owner_signed_crm2_s3: boolean;
+  agent_confirmed_reservation_payment: boolean;
+  buyer_confirmed_reservation_payment: boolean;
+  // Stage 3: Contrato
+  contract_filename: string | null;
+  contract_analysis_data?: any;
+  is_agent_signed: boolean;
+  is_buyer_signed: boolean;
+  // Stage 4: Pago
+  agent_confirmed_final_payment: boolean;
+  buyer_confirmed_final_payment: boolean;
 }
 
 // ─── Request Types ────────────────────────────────────────────
@@ -97,7 +108,16 @@ export interface UpdatePropertyStageRequest {
   commission_type?: CommissionType;
   proposed_commission?: number;
   client_accepted_commission?: boolean;
+  corretaje_status?: 'pending' | 'accepted' | 'counteroffer' | null;
+  corretaje_exclusivity_months?: number | null;
+  corretaje_counteroffer_data?: {
+    commission_type?: CommissionType;
+    amount?: number;
+    exclusivity_months?: number;
+    message?: string;
+  } | null;
   corretaje_contract_filename?: string;
+  corretaje_contract_content?: string;
   is_agent_signed_crm1?: boolean;
   is_client_signed_crm1?: boolean;
   published_to_map?: boolean;
@@ -109,21 +129,20 @@ export interface CreateLeadRequest {
   buyer_name: string;
   buyer_phone: string;
   buyer_email: string;
-  offer_price: number;
-  payment_method: PaymentMethod;
 }
 
 export interface UpdateLeadStageRequest {
   stage_crm2?: number;
+  buyer_showed_interest?: boolean;
   reservation_amount?: number;
-  compromiso_contract_filename?: string;
-  is_agent_signed_crm2_s2?: boolean;
-  is_buyer_signed_crm2_s2?: boolean;
-  final_contract_filename?: string;
-  notary_office_number?: string;
-  is_agent_signed_crm2_s3?: boolean;
-  is_buyer_signed_crm2_s3?: boolean;
-  is_owner_signed_crm2_s3?: boolean;
+  agent_confirmed_reservation_payment?: boolean;
+  buyer_confirmed_reservation_payment?: boolean;
+  contract_filename?: string;
+  contract_analysis_data?: any;
+  is_agent_signed?: boolean;
+  is_buyer_signed?: boolean;
+  agent_confirmed_final_payment?: boolean;
+  buyer_confirmed_final_payment?: boolean;
 }
 
 export interface AnalyzeDocumentRequest {
@@ -201,10 +220,11 @@ export const CRM1_STAGES: Record<number, string> = {
 };
 
 export const CRM2_STAGES: Record<number, string> = {
-  1: 'Lead Inicial',
-  2: 'Contrato Compromiso',
-  3: 'Cierre Legal',
-  4: 'Finalizado con Éxito',
+  1: 'Contacto',
+  2: 'Interés',
+  3: 'Contrato',
+  4: 'Pago',
+  5: 'Venta',
 };
 
 export const TRANSACTION_LABELS: Record<TransactionType, string> = {

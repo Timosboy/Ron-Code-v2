@@ -3,9 +3,9 @@ import { Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usePropertyStore } from '../../store/propertyStore';
 import StepperCRM from '../../components/StepperCRM';
-import AIDocumentAnalyzer from '../../components/AIDocumentAnalyzer';
+import AutoContractGenerator from '../../components/AutoContractGenerator';
 
-const CRM1_STAGE_LABELS = ['Oferta Recibida', 'Negociación', 'Contrato Corretaje', 'En Mercado', 'Concluida'];
+const CRM1_STAGE_LABELS = ['Solicitud Recepcionada', 'Acuerdo Comisión', 'Firma Contrato Prestación de Servicios', 'En Mercado', 'Cierre'];
 
 export default function MisVentas() {
   const user = useAuthStore((s) => s.user);
@@ -14,7 +14,13 @@ export default function MisVentas() {
   const [analyzingPropertyId, setAnalyzingPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) fetchProperties({ owner_id: user.id });
+    if (user) {
+      fetchProperties({ owner_id: user.id });
+      const interval = setInterval(() => {
+        fetchProperties({ owner_id: user.id });
+      }, 5000);
+      return () => clearInterval(interval);
+    }
   }, [user, fetchProperties]);
 
   const activeProperties = properties.filter((p) => p.stage_crm1 >= 1);
@@ -41,8 +47,8 @@ export default function MisVentas() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">Mis Ventas</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Seguimiento del proceso de venta (CRM 1)</p>
+        <h1 className="text-2xl font-black text-gray-900">Seguimiento</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Sigue el estado y avance de la oferta de tus propiedades</p>
       </div>
 
       {activeProperties.length === 0 ? (
@@ -121,16 +127,17 @@ export default function MisVentas() {
                     {!prop.is_client_signed_crm1 ? (
                       <>
                         <p className="text-sm text-gray-500">
-                          Sube el contrato de corretaje para que nuestra IA lo analice antes de firmar.
+                          Genera automáticamente el contrato de corretaje con las condiciones acordadas para firmarlo digitalmente.
                         </p>
                         <button
                           onClick={() => {
                             setAnalyzingPropertyId(prop.id);
                             setShowAnalyzer(true);
                           }}
-                          className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer"
+                          className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/20 hover:bg-violet-700 transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
-                          📄 Cargar y Analizar Contrato de Corretaje
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" /></svg>
+                          Generar Contrato Automáticamente
                         </button>
                       </>
                     ) : (
@@ -166,21 +173,34 @@ export default function MisVentas() {
         </div>
       )}
 
-      {/* AI Document Analyzer Modal */}
-      <AIDocumentAnalyzer
+      {/* Auto Contract Generator Modal */}
+      <AutoContractGenerator
         isOpen={showAnalyzer}
         onClose={() => setShowAnalyzer(false)}
-        context="corretaje"
-        transactionType={
-          analyzingPropertyId
-            ? properties.find((p) => p.id === analyzingPropertyId)?.type || 'venta'
-            : 'venta'
-        }
-        onSign={(filename) => {
+        property={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId) || null : null}
+        ownerName={user?.name || 'Propietario'}
+        aiContent={analyzingPropertyId ? properties.find((p) => p.id === analyzingPropertyId)?.corretaje_contract_content : null}
+        onAccept={(filename) => {
           if (analyzingPropertyId) {
             handleSignContract(analyzingPropertyId, filename);
           }
         }}
+        onCounteroffer={async (data) => {
+          if (analyzingPropertyId) {
+            await updateStage(analyzingPropertyId, {
+              corretaje_status: 'counteroffer',
+              corretaje_counteroffer_data: {
+                commission_type: data.type,
+                amount: data.amount ? parseFloat(data.amount) : undefined,
+                exclusivity_months: data.exclusivity ? parseInt(data.exclusivity, 10) : undefined,
+                message: data.message
+              }
+            });
+            fetchProperties({ owner_id: user!.id });
+            setShowAnalyzer(false);
+          }
+        }}
+        onReject={() => setShowAnalyzer(false)}
       />
     </div>
   );

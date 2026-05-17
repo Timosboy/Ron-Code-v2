@@ -36,11 +36,15 @@ export default function BuscarPropiedades() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { isLoaded } = useLoadScript({
-    googleMapsApiKey: '', // Key will be added by user later
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
   });
 
   useEffect(() => {
     fetchProperties({ published_to_map: 'true' });
+    const interval = setInterval(() => {
+      fetchProperties({ published_to_map: 'true' });
+    }, 5000);
+    return () => clearInterval(interval);
   }, [fetchProperties]);
 
   const filteredProperties = properties.filter((p) => {
@@ -65,8 +69,6 @@ export default function BuscarPropiedades() {
   }, [filteredProperties]);
 
   const handleSubmitInterest = async (data: {
-    offer_price: number;
-    payment_method: 'efectivo' | 'credito_bancario' | 'fondos_propios';
     buyer_name: string;
     buyer_phone: string;
     buyer_email: string;
@@ -89,7 +91,7 @@ export default function BuscarPropiedades() {
   }
 
   return (
-    <div className="absolute inset-0 w-full h-[100dvh] pb-16 overflow-hidden bg-gray-100">
+    <div className="absolute inset-0 w-full h-full pb-16 overflow-hidden bg-gray-100">
       {/* Fullscreen Map */}
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -112,7 +114,7 @@ export default function BuscarPropiedades() {
               onClick={() => setSelectedProperty(prop)}
               label={{
                 text: labelText,
-                color: isSelected ? '#FFFFFF' : '#111827',
+                color: isSelected ? '#F9F9F6' : '#4A5D7E',
                 fontWeight: '800',
                 fontSize: '12px',
                 className: 'mt-5 bg-white/80 backdrop-blur-sm px-1.5 py-0.5 rounded-md border border-gray-200 shadow-sm'
@@ -248,7 +250,7 @@ export default function BuscarPropiedades() {
               onClick={() => setShowLeadForm(true)}
               className="w-full py-3.5 rounded-2xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/25 hover:bg-violet-700 transition-all cursor-pointer"
             >
-              💬 Me Interesa / Contactar Agente
+              📋 Contactar Agente
             </button>
           </div>
         )}

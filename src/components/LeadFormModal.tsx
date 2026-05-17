@@ -1,14 +1,12 @@
 import { useState } from 'react';
-import { X, DollarSign, User, Phone, Mail } from 'lucide-react';
-import type { PaymentMethod, Property } from '../types';
+import { X, User, Phone, Mail } from 'lucide-react';
+import type { Property } from '../types';
 
 interface LeadFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   property: Property | null;
   onSubmit: (data: {
-    offer_price: number;
-    payment_method: PaymentMethod;
     buyer_name: string;
     buyer_phone: string;
     buyer_email: string;
@@ -16,8 +14,6 @@ interface LeadFormModalProps {
 }
 
 export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: LeadFormModalProps) {
-  const [offerPrice, setOfferPrice] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
@@ -25,15 +21,8 @@ export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: L
   if (!isOpen || !property) return null;
 
   const handleSubmit = () => {
-    if (!offerPrice || !buyerName || !buyerPhone || !buyerEmail) return;
-    onSubmit({
-      offer_price: parseFloat(offerPrice),
-      payment_method: paymentMethod,
-      buyer_name: buyerName,
-      buyer_phone: buyerPhone,
-      buyer_email: buyerEmail,
-    });
-    setOfferPrice('');
+    if (!buyerName || !buyerPhone || !buyerEmail) return;
+    onSubmit({ buyer_name: buyerName, buyer_phone: buyerPhone, buyer_email: buyerEmail });
     setBuyerName('');
     setBuyerPhone('');
     setBuyerEmail('');
@@ -44,10 +33,9 @@ export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: L
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn" onClick={onClose} />
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-scaleIn">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-100">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Me Interesa</h2>
+            <h2 className="text-lg font-bold text-gray-900">Contactar Agente</h2>
             <p className="text-xs text-gray-400 mt-0.5">{property.title}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer">
@@ -56,36 +44,10 @@ export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: L
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Offer Price */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Precio Ofertado</label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                value={offerPrice}
-                onChange={(e) => setOfferPrice(e.target.value)}
-                type="number"
-                placeholder={`Precio listado: ${property.currency === 'USD' ? '$' : 'Bs.'}${property.price.toLocaleString()}`}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+          <p className="text-sm text-gray-500">
+            Comparte tu información para que el agente se ponga en contacto contigo y te brinde más detalles sobre esta propiedad.
+          </p>
 
-          {/* Payment Method */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Método de Pago</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent cursor-pointer"
-            >
-              <option value="efectivo">Efectivo</option>
-              <option value="credito_bancario">Crédito Bancario</option>
-              <option value="fondos_propios">Fondos Propios</option>
-            </select>
-          </div>
-
-          {/* Buyer Name */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre Completo</label>
             <div className="relative">
@@ -99,7 +61,6 @@ export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: L
             </div>
           </div>
 
-          {/* Buyer Phone */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
             <div className="relative">
@@ -113,7 +74,6 @@ export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: L
             </div>
           </div>
 
-          {/* Buyer Email */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
             <div className="relative">
@@ -128,13 +88,12 @@ export default function LeadFormModal({ isOpen, onClose, property, onSubmit }: L
             </div>
           </div>
 
-          {/* Submit */}
           <button
             onClick={handleSubmit}
-            disabled={!offerPrice || !buyerName || !buyerPhone || !buyerEmail}
+            disabled={!buyerName || !buyerPhone || !buyerEmail}
             className="w-full py-3.5 rounded-2xl bg-violet-600 text-white font-semibold text-sm shadow-lg shadow-violet-600/25 hover:bg-violet-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            Enviar Interés al Agente
+            Enviar mi Información al Agente
           </button>
         </div>
       </div>

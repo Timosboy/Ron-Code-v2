@@ -5,7 +5,16 @@ from typing import Optional, Literal, List
 from mangum import Mangum
 import uuid
 import random
+import os
 from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from openai import OpenAI
+import pypdf
+import docx
+from dotenv import load_dotenv
+
+# Load .env file if present
+load_dotenv()
 
 # ─── FastAPI App ────────────────────────────────────────────────
 app = FastAPI(title="PropTech-Flow API", version="1.0.0")
@@ -49,7 +58,11 @@ class Property(BaseModel):
     commission_type: Optional[Literal["porcentaje", "fijo"]] = None
     proposed_commission: Optional[float] = None
     client_accepted_commission: bool = False
+    corretaje_status: Optional[Literal["pending", "accepted", "counteroffer"]] = None
+    corretaje_exclusivity_months: Optional[int] = None
+    corretaje_counteroffer_data: Optional[dict] = None
     corretaje_contract_filename: Optional[str] = None
+    corretaje_contract_content: Optional[str] = None
     is_agent_signed_crm1: bool = False
     is_client_signed_crm1: bool = False
     published_to_map: bool = False
@@ -63,17 +76,19 @@ class LeadCRM2(BaseModel):
     buyer_email: str
     agent_id: str
     stage_crm2: int = 1
-    offer_price: float = 0
-    payment_method: Literal["efectivo", "credito_bancario", "fondos_propios"] = "efectivo"
+    # Stage 2: Interés
+    buyer_showed_interest: bool = False
     reservation_amount: Optional[float] = None
-    compromiso_contract_filename: Optional[str] = None
-    is_agent_signed_crm2_s2: bool = False
-    is_buyer_signed_crm2_s2: bool = False
-    final_contract_filename: Optional[str] = None
-    notary_office_number: Optional[str] = None
-    is_agent_signed_crm2_s3: bool = False
-    is_buyer_signed_crm2_s3: bool = False
-    is_owner_signed_crm2_s3: bool = False
+    agent_confirmed_reservation_payment: bool = False
+    buyer_confirmed_reservation_payment: bool = False
+    # Stage 3: Contrato
+    contract_filename: Optional[str] = None
+    contract_analysis_data: Optional[dict] = None
+    is_agent_signed: bool = False
+    is_buyer_signed: bool = False
+    # Stage 4: Pago
+    agent_confirmed_final_payment: bool = False
+    buyer_confirmed_final_payment: bool = False
 
 # ─── Request Schemas ──────────────────────────────────────────
 
@@ -100,7 +115,11 @@ class UpdatePropertyStageRequest(BaseModel):
     commission_type: Optional[Literal["porcentaje", "fijo"]] = None
     proposed_commission: Optional[float] = None
     client_accepted_commission: Optional[bool] = None
+    corretaje_status: Optional[Literal["pending", "accepted", "counteroffer"]] = None
+    corretaje_exclusivity_months: Optional[int] = None
+    corretaje_counteroffer_data: Optional[dict] = None
     corretaje_contract_filename: Optional[str] = None
+    corretaje_contract_content: Optional[str] = None
     is_agent_signed_crm1: Optional[bool] = None
     is_client_signed_crm1: Optional[bool] = None
     published_to_map: Optional[bool] = None
@@ -111,20 +130,19 @@ class CreateLeadRequest(BaseModel):
     buyer_name: str
     buyer_phone: str
     buyer_email: str
-    offer_price: float
-    payment_method: Literal["efectivo", "credito_bancario", "fondos_propios"]
 
 class UpdateLeadStageRequest(BaseModel):
     stage_crm2: Optional[int] = None
+    buyer_showed_interest: Optional[bool] = None
     reservation_amount: Optional[float] = None
-    compromiso_contract_filename: Optional[str] = None
-    is_agent_signed_crm2_s2: Optional[bool] = None
-    is_buyer_signed_crm2_s2: Optional[bool] = None
-    final_contract_filename: Optional[str] = None
-    notary_office_number: Optional[str] = None
-    is_agent_signed_crm2_s3: Optional[bool] = None
-    is_buyer_signed_crm2_s3: Optional[bool] = None
-    is_owner_signed_crm2_s3: Optional[bool] = None
+    agent_confirmed_reservation_payment: Optional[bool] = None
+    buyer_confirmed_reservation_payment: Optional[bool] = None
+    contract_filename: Optional[str] = None
+    contract_analysis_data: Optional[dict] = None
+    is_agent_signed: Optional[bool] = None
+    is_buyer_signed: Optional[bool] = None
+    agent_confirmed_final_payment: Optional[bool] = None
+    buyer_confirmed_final_payment: Optional[bool] = None
 
 class AnalyzeDocumentRequest(BaseModel):
     filename: str
@@ -264,16 +282,16 @@ properties_db: dict[str, Property] = {
 leads_db: dict[str, LeadCRM2] = {
     "l1": LeadCRM2(id="l1", property_id="p1", buyer_id="u1", buyer_name="María López",
                   buyer_phone="+591 71234567", buyer_email="maria@client.com", agent_id="u3",
-                  stage_crm2=1, offer_price=180000, payment_method="credito_bancario"),
+                  stage_crm2=1),
     "l2": LeadCRM2(id="l2", property_id="p1", buyer_id="u2", buyer_name="Carlos Mendoza",
                   buyer_phone="+591 76543210", buyer_email="carlos@client.com", agent_id="u3",
-                  stage_crm2=2, offer_price=182000, payment_method="efectivo"),
+                  stage_crm2=2, buyer_showed_interest=True, reservation_amount=5000),
     "l3": LeadCRM2(id="l3", property_id="p3", buyer_id="u1", buyer_name="María López",
                   buyer_phone="+591 71234567", buyer_email="maria@client.com", agent_id="u4",
-                  stage_crm2=1, offer_price=1100, payment_method="fondos_propios"),
+                  stage_crm2=1),
     "l4": LeadCRM2(id="l4", property_id="p4", buyer_id="u2", buyer_name="Carlos Mendoza",
                   buyer_phone="+591 76543210", buyer_email="carlos@client.com", agent_id="u5",
-                  stage_crm2=1, offer_price=43000, payment_method="efectivo"),
+                  stage_crm2=1),
 }
 marketing_campaigns_db: dict[str, dict] = {}
 social_posts_db: dict[str, dict] = {}
@@ -343,9 +361,6 @@ lead_pipeline_stages_db: dict[str, str] = {
 }
 
 lead_classifications_db: dict[str, LeadClassification] = {}
-leads_db: dict[str, LeadCRM2] = {}
-marketing_campaigns_db: dict[str, dict] = {}
-social_posts_db: dict[str, dict] = {}
 
 
 def calc_status_documents(p: Property) -> Literal["saneado", "advertencia"]:
@@ -478,8 +493,6 @@ def create_lead(req: CreateLeadRequest):
         buyer_email=req.buyer_email,
         agent_id=prop.agent_id,
         stage_crm2=1,
-        offer_price=req.offer_price,
-        payment_method=req.payment_method,
     )
     leads_db[lid] = lead
     return lead.model_dump()
@@ -494,8 +507,22 @@ def update_lead_stage(lead_id: str, req: UpdateLeadStageRequest):
     for key, value in update_data.items():
         setattr(lead, key, value)
 
-    # Auto-archive trigger: when CRM2 reaches stage 4
-    if lead.stage_crm2 == 4:
+    # Auto-advance stage logic
+    if lead.buyer_showed_interest and lead.stage_crm2 == 1:
+        lead.stage_crm2 = 2
+    if (lead.agent_confirmed_reservation_payment and
+            lead.buyer_confirmed_reservation_payment and
+            lead.stage_crm2 == 2):
+        lead.stage_crm2 = 3
+    if lead.is_agent_signed and lead.is_buyer_signed and lead.stage_crm2 == 3:
+        lead.stage_crm2 = 4
+    if (lead.agent_confirmed_final_payment and
+            lead.buyer_confirmed_final_payment and
+            lead.stage_crm2 == 4):
+        lead.stage_crm2 = 5
+
+    # Auto-archive trigger: when CRM2 reaches stage 5
+    if lead.stage_crm2 == 5:
         prop_id = lead.property_id
         if prop_id in properties_db:
             prop = properties_db[prop_id]
@@ -507,92 +534,180 @@ def update_lead_stage(lead_id: str, req: UpdateLeadStageRequest):
     return lead.model_dump()
 
 
+class GenerateCorretajeContractRequest(BaseModel):
+    property_id: str
+    owner_name: str
+
+@app.post("/api/ai/generate-contract")
+async def generate_corretaje_contract(req: GenerateCorretajeContractRequest):
+    import json
+    if req.property_id not in properties_db:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+    
+    prop = properties_db[req.property_id]
+    today = datetime.utcnow().strftime("%d de %B de %Y")
+    commission_text = (
+        f"{prop.proposed_commission}% del precio de {prop.type} final"
+        if prop.commission_type == "porcentaje"
+        else f"${prop.proposed_commission:,.0f} USD (Monto Fijo)"
+    ) if prop.proposed_commission else "A convenir"
+    exclusivity = f"{prop.corretaje_exclusivity_months} meses" if prop.corretaje_exclusivity_months else "A convenir"
+
+    prompt = f"""
+    Eres un abogado especialista en derecho inmobiliario de Bolivia.
+    Redacta un CONTRATO DE CORRETAJE INMOBILIARIO formal y completo en español, adaptado a la legislación boliviana.
+    
+    Datos del contrato:
+    - Propietario: {req.owner_name}
+    - Inmueble: {prop.title}
+    - Descripción: {prop.description}
+    - Precio de oferta: {prop.price:,.0f} {prop.currency}
+    - Tipo de operación: {prop.type.upper()}
+    - Comisión pactada: {commission_text}
+    - Exclusividad: {exclusivity}
+    - Fecha: {today}, Cochabamba, Bolivia
+    - Corredor: PROPTECH-FLOW S.R.L.
+    
+    Estructura obligatoria del contrato (cada cláusula numerada en MAYÚSCULAS):
+    PRIMERA: (LAS PARTES) - Identificar propietario y corredor
+    SEGUNDA: (DEL OBJETO) - Inmueble y tipo de operación
+    TERCERA: (PRECIO DE OFERTA) - Precio base acordado
+    CUARTA: (COMISIÓN Y HONORARIOS) - Monto y condiciones de pago
+    QUINTA: (EXCLUSIVIDAD) - Duración y condiciones
+    SEXTA: (OBLIGACIONES DEL CORREDOR) - Servicios que provee PropTech-Flow
+    SÉPTIMA: (OBLIGACIONES DEL PROPIETARIO) - Compromisos del propietario
+    OCTAVA: (RESOLUCIÓN DEL CONTRATO) - Causales de resolución
+    NOVENA: (CONFORMIDAD DIGITAL) - Aceptación digital en plataforma
+    
+    Usa lenguaje formal y jurídico boliviano. NO incluyas firmas ni campos de firma. NO uses markdown. Solo texto plano.
+    """
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        try:
+            oai_client = OpenAI(api_key=api_key)
+            response = oai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Eres un abogado boliviano experto en contratos inmobiliarios. Redacta en texto plano, sin markdown."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2000,
+            )
+            content = response.choices[0].message.content
+            prop.corretaje_contract_content = content
+            properties_db[req.property_id] = prop
+            return {"content": content}
+        except Exception as e:
+            print(f"OpenAI Error: {e}")
+
+    # Fallback hardcoded si falla OpenAI
+    fallback = f"""CONTRATO DE CORRETAJE INMOBILIARIO
+Cochabamba, Bolivia — {today}
+
+PRIMERA: (LAS PARTES)
+Intervienen en el presente contrato: {req.owner_name}, mayor de edad, hábil por derecho, en adelante EL/LA PROPIETARIO/A; y PROPTECH-FLOW S.R.L., representada por su agente autorizado, en adelante EL CORREDOR.
+
+SEGUNDA: (DEL OBJETO DEL CONTRATO)
+EL/LA PROPIETARIO/A declara ser titular legítimo del inmueble denominado "{prop.title}" y otorga a EL CORREDOR mandato exclusivo para su {prop.type}.
+
+TERCERA: (PRECIO DE OFERTA)
+Las partes acuerdan un precio base de {prop.price:,.0f} {prop.currency}. Cualquier modificación deberá ser aprobada por escrito.
+
+CUARTA: (COMISIÓN Y HONORARIOS)
+En caso de concretarse la operación, EL/LA PROPIETARIO/A cancelará por concepto de honorarios: {commission_text}.
+
+QUINTA: (EXCLUSIVIDAD)
+El presente contrato tiene carácter de exclusividad por un período de {exclusivity}.
+
+SEXTA: (CONFORMIDAD DIGITAL)
+Las partes aceptan digitalmente el presente documento a través de la plataforma PropTech-Flow."""
+    prop.corretaje_contract_content = fallback
+    properties_db[req.property_id] = prop
+    return {"content": fallback}
+
+
 @app.post("/api/ai/analyze-document")
-def analyze_document(req: AnalyzeDocumentRequest):
-    """Simulated AI document analysis. Returns pre-scripted results based on context and transaction type."""
 
-    if req.transaction_type == "anticretico":
-        clauses = [
-            {
-                "text": "CLÁUSULA SÉPTIMA – DEVOLUCIÓN DEL CAPITAL ANTICRÉTICO: El propietario se compromete a restituir la totalidad del capital anticrético entregado por el inquilino, en la misma moneda pactada (USD), al momento de la finalización del plazo contractual y la entrega física del inmueble libre de deudas, gravámenes y ocupantes.",
-                "type": "safe",
-                "tooltip": "Cláusula Estándar Segura que protege tus fondos. Cumple con el Art. 1227 del Código Civil Boliviano."
-            },
-            {
-                "text": "CLÁUSULA DÉCIMA – CONDICIÓN DE DEVOLUCIÓN: El propietario no devolverá el capital anticrético al vencer el plazo si no ha consolidado un nuevo inquilino sustituto para el inmueble, quedando el capital retenido como garantía hasta que se concrete dicha sustitución sin plazo definido.",
-                "type": "dangerous",
-                "tooltip": "Alerta Legal: Cláusula abusiva que vulnera el Art. 1227 del Código Civil Boliviano. El dinero de la garantía anticrética debe devolverse de manera mandatoria al vencer el plazo forzoso, independientemente de que exista o no un nuevo inquilino."
-            },
-            {
-                "text": "CLÁUSULA TERCERA – PLAZO Y VIGENCIA: El presente contrato de anticrético tiene una vigencia de veinticuatro (24) meses calendario computables a partir de la fecha de suscripción del presente documento, pudiendo ser renovado por acuerdo mutuo de las partes con treinta (30) días de anticipación.",
-                "type": "safe",
-                "tooltip": "Cláusula estándar con plazo definido y condiciones de renovación claras."
-            },
-        ]
-        score = 72
-    elif req.context == "corretaje":
-        clauses = [
-            {
-                "text": "CLÁUSULA PRIMERA – OBJETO DEL CONTRATO: Por el presente contrato de corretaje inmobiliario, el PROPIETARIO otorga al AGENTE INMOBILIARIO la facultad exclusiva para intermediar en la operación de venta/alquiler del inmueble descrito en la cláusula segunda, conforme a las condiciones económicas y plazos establecidos en el presente documento.",
-                "type": "safe",
-                "tooltip": "Cláusula estándar que define el alcance del mandato de intermediación."
-            },
-            {
-                "text": "CLÁUSULA QUINTA – COMISIÓN DEL AGENTE: La comisión pactada será del porcentaje acordado sobre el precio final de la transacción, pagadera al momento de la firma del contrato definitivo de transferencia. En caso de desistimiento del propietario, la comisión será igualmente exigible.",
-                "type": "safe",
-                "tooltip": "Cláusula válida que protege la labor del agente inmobiliario conforme al Código de Comercio."
-            },
-            {
-                "text": "CLÁUSULA OCTAVA – EXCLUSIVIDAD IRREVOCABLE: El propietario no podrá rescindir el presente contrato bajo ninguna circunstancia durante los primeros doce (12) meses, incluso si encuentra un comprador por cuenta propia, debiendo pagar la comisión íntegra al agente.",
-                "type": "dangerous",
-                "tooltip": "Alerta Legal: Cláusula de exclusividad excesiva. El Código de Comercio permite la rescisión con preaviso razonable. Una cláusula irrevocable por 12 meses puede ser considerada abusiva."
-            },
-        ]
-        score = 85
-    elif req.context == "compromiso":
-        clauses = [
-            {
-                "text": "CLÁUSULA SEGUNDA – RESERVA Y ARRAS: El COMPRADOR entrega en este acto la suma pactada como arras confirmatorias, la cual será imputada al precio total de la operación. En caso de desistimiento del comprador, dicha suma quedará en poder del vendedor como indemnización compensatoria.",
-                "type": "safe",
-                "tooltip": "Cláusula estándar de arras confirmatorias conforme al Art. 537 del Código Civil."
-            },
-            {
-                "text": "CLÁUSULA CUARTA – PLAZO PARA ESCRITURACIÓN: Las partes se comprometen a suscribir la escritura pública de transferencia en un plazo no mayor a sesenta (60) días calendario a partir de la firma del presente documento.",
-                "type": "safe",
-                "tooltip": "Plazo razonable y claro para la formalización de la compraventa."
-            },
-            {
-                "text": "CLÁUSULA SEXTA – PENALIDAD: En caso de incumplimiento por parte del VENDEDOR, éste deberá devolver el doble de las arras recibidas conforme a ley.",
-                "type": "safe",
-                "tooltip": "Penalidad equilibrada que protege a ambas partes según la normativa civil boliviana."
-            },
-        ]
-        score = 95
-    else:  # final
-        clauses = [
-            {
-                "text": "CLÁUSULA PRIMERA – TRANSFERENCIA DE DOMINIO: Por el presente contrato, el VENDEDOR transfiere a favor del COMPRADOR la propiedad y dominio pleno del inmueble objeto del presente instrumento, libre de todo gravamen, hipoteca, embargo, anotación preventiva o limitación alguna.",
-                "type": "safe",
-                "tooltip": "Cláusula fundamental de transferencia de dominio. Verifica que coincida con el Folio Real actualizado."
-            },
-            {
-                "text": "CLÁUSULA TERCERA – PRECIO Y FORMA DE PAGO: El precio total de la transferencia es el monto acordado, pagadero en la forma y plazos convenidos entre las partes, quedando constancia del pago total con la firma de este instrumento.",
-                "type": "safe",
-                "tooltip": "Cláusula estándar. Asegúrate de que los montos coincidan con lo pactado en el contrato de compromiso."
-            },
-            {
-                "text": "CLÁUSULA QUINTA – SANEAMIENTO Y EVICCIÓN: El VENDEDOR garantiza el saneamiento de la propiedad transferida y responde por evicción conforme a los artículos 614 a 623 del Código Civil Boliviano.",
-                "type": "safe",
-                "tooltip": "Protección legal completa para el comprador frente a defectos de titularidad."
-            },
-        ]
-        score = 91
+async def analyze_document(
+    file: UploadFile = File(...),
+    context: str = Form(...),
+    transaction_type: str = Form(...),
+    property_id: Optional[str] = Form(None)
+):
+    import io
+    import json
+    
+    text_content = ""
+    try:
+        content = await file.read()
+        if file.filename.endswith('.pdf'):
+            pdf_reader = pypdf.PdfReader(io.BytesIO(content))
+            text_content = "\n".join(page.extract_text() for page in pdf_reader.pages if page.extract_text())
+        elif file.filename.endswith('.docx'):
+            doc = docx.Document(io.BytesIO(content))
+            text_content = "\n".join(para.text for para in doc.paragraphs)
+        else:
+            text_content = content.decode('utf-8', errors='ignore')
+    except Exception as e:
+        print(f"Error extracting text: {e}")
+        text_content = "Error de extracción."
 
+    prop_context = "Sin datos de propiedad."
+    if property_id and property_id in properties_db:
+        prop = properties_db[property_id]
+        prop_context = f"Precio: {prop.price} {prop.currency}, Tipo: {prop.type}, Título: {prop.title}"
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        client = OpenAI(api_key=api_key)
+        prompt = f"""
+        Actúa como un abogado auditor de contratos inmobiliarios en Bolivia.
+        Analiza el siguiente contrato ({context}) para una transacción de {transaction_type}.
+        Datos de la propiedad para contrastar: {prop_context}
+        Texto del contrato:
+        {text_content[:6000]}
+
+        Devuelve un JSON estrictamente con esta estructura:
+        {{
+            "score": [número del 0 al 100 de seguridad general],
+            "summary": "[resumen general del análisis]",
+            "clauses": [
+                {{
+                    "text": "[texto de la cláusula extraída]",
+                    "type": "safe" o "dangerous",
+                    "tooltip": "[explicación de por qué es segura o peligrosa, señalando si los datos como precio/m2 no coinciden con la propiedad]"
+                }}
+            ]
+        }}
+        """
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a legal AI assistant. Output valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={ "type": "json_object" }
+            )
+            result = json.loads(response.choices[0].message.content)
+            result["filename"] = file.filename
+            result["text_content"] = text_content
+            return result
+        except Exception as e:
+            print(f"OpenAI API Error: {e}")
+
+    # Fallback si falla OpenAI o no hay API KEY
+    score = 85
+    clauses = [
+        {"text": "CLÁUSULA DE FALLBACK", "type": "safe", "tooltip": "Modo de simulación activado."}
+    ]
     return {
-        "filename": req.filename,
+        "filename": file.filename,
         "score": score,
         "clauses": clauses,
-        "summary": f"Análisis completado. Score de seguridad: {score}%. Se encontraron {len([c for c in clauses if c['type'] == 'dangerous'])} cláusula(s) de riesgo.",
+        "text_content": text_content,
+        "summary": "Análisis simulado (OpenAI no configurado o falló)."
     }
 
 
